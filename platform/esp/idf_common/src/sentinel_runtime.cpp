@@ -334,9 +334,23 @@ void inject_stroke(const char* what, int32_t x0, int32_t y0, int32_t x1, int32_t
     s_inject.release_at_us = s_inject.start_us + static_cast<int64_t>(move_ms + hold_ms) * 1000;
     s_inject.active = true;
     bsp_display_unlock();
+    // The Tab5's touch indev runs in LV_INDEV_MODE_EVENT (esp_lvgl_port reads it only when
+    // the touch controller raises its interrupt), so drive the reads while the stroke lasts.
+    const bool event_driven = lv_indev_get_mode(indev) == LV_INDEV_MODE_EVENT;
     for (int waited = 0; s_inject.active && waited < move_ms + hold_ms + 1000; waited += 10)
     {
+        if (event_driven && bsp_display_lock(100))
+        {
+            lv_indev_read(indev);
+            bsp_display_unlock();
+        }
         vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    if (s_inject.active)
+    {
+        s_inject.active = false;
+        reply_err("%s was not read by the UI", what);
+        return;
     }
     reply_ok("%s", what);
 }
@@ -404,6 +418,7 @@ void handle_line(char* line)
         return;
     }
     const char* cmd = argv[0];
+    ESP_LOGI(kTag, "console: %s (%d args)", cmd, argc - 1);
     if (std::strcmp(cmd, "info") == 0)
     {
         cmd_info(argc, argv);
