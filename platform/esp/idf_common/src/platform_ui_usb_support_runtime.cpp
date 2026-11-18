@@ -18,8 +18,8 @@
 #elif defined(TRAIL_MATE_ESP_BOARD_T_DISPLAY_P4)
 #include "boards/t_display_p4/t_display_p4_board.h"
 #include "platform/esp/idf_common/usb_console_runtime.h"
-#include "platform/ui/screen_runtime.h"
 #endif
+#include "platform/ui/screen_runtime.h"
 #include "driver/sdmmc_host.h"
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
