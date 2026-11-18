@@ -19,6 +19,7 @@
 #include "freertos/task.h"
 #include "hal/usb_serial_jtag_ll.h"
 #include "lvgl.h"
+#include "platform/esp/idf_common/screen_touch.h"
 #include "sentinel_app.h"
 
 // Where Sentinel Bootloader looks for updates of this firmware: the newest release of this
@@ -43,15 +44,17 @@ TaskHandle_t s_console_task = nullptr;
 // Console task scratch. Only the console task uses these (no large automatic locals on the
 // task stack; see AGENTS.md "ESP Stack Hygiene").
 char s_line[kLineMax];
-char s_out[kBlobChunk / 3 * 4 + 16];
+char s_out[kBlobChunk / 3 * 4 + 24];
 
 // ---------------------------------------------------------------------------------------
 // Replies. Every reply line is written with one fwrite on stdout so log lines from other
-// tasks (which lock the same FILE) cannot split it.
+// tasks (which lock the same FILE) cannot split it, and starts with a newline: the logger
+// may write one log line in several pieces, and a reply landing between them must still
+// begin a line of its own for the host to recognise it.
 
 void write_line(const char* prefix, const char* fmt, va_list args)
 {
-    int n = std::snprintf(s_out, sizeof(s_out), "%s", prefix);
+    int n = std::snprintf(s_out, sizeof(s_out), "\n%s", prefix);
     if (n < 0)
     {
         return;
@@ -102,8 +105,8 @@ void send_blob(const uint8_t* data, std::size_t len)
     {
         const std::size_t chunk = (len - off) < kBlobChunk ? (len - off) : kBlobChunk;
         std::size_t o = 0;
-        std::memcpy(s_out, "@data ", 6);
-        o = 6;
+        std::memcpy(s_out, "\n@data ", 7);
+        o = 7;
         for (std::size_t i = 0; i < chunk; i += 3)
         {
             const uint8_t* p = data + off + i;
@@ -217,8 +220,13 @@ void cmd_shot(int argc, char** argv)
 struct InjectedTouch
 {
     volatile bool active = false;
-    int32_t native_x = 0;
-    int32_t native_y = 0;
+    // Native panel coordinates at the start and end of the stroke (equal for a tap).
+    int32_t x0 = 0;
+    int32_t y0 = 0;
+    int32_t x1 = 0;
+    int32_t y1 = 0;
+    int64_t start_us = 0;
+    int64_t move_us = 0; // 0 for a tap
     int64_t release_at_us = 0;
 };
 
@@ -229,9 +237,19 @@ void injecting_read_cb(lv_indev_t* indev, lv_indev_data_t* data)
 {
     if (s_inject.active)
     {
-        data->point.x = s_inject.native_x;
-        data->point.y = s_inject.native_y;
-        if (esp_timer_get_time() < s_inject.release_at_us)
+        const int64_t now = esp_timer_get_time();
+        const int64_t t = now - s_inject.start_us;
+        if (s_inject.move_us > 0 && t < s_inject.move_us)
+        {
+            data->point.x = s_inject.x0 + static_cast<int32_t>((s_inject.x1 - s_inject.x0) * t / s_inject.move_us);
+            data->point.y = s_inject.y0 + static_cast<int32_t>((s_inject.y1 - s_inject.y0) * t / s_inject.move_us);
+        }
+        else
+        {
+            data->point.x = s_inject.x1;
+            data->point.y = s_inject.y1;
+        }
+        if (now < s_inject.release_at_us)
         {
             data->state = LV_INDEV_STATE_PRESSED;
         }
@@ -240,6 +258,8 @@ void injecting_read_cb(lv_indev_t* indev, lv_indev_data_t* data)
             data->state = LV_INDEV_STATE_RELEASED;
             s_inject.active = false;
         }
+        // A tap on a sleeping screen wakes it, as a finger does, instead of reaching the UI.
+        (void)screen_touch::filter(indev, data);
         return;
     }
     if (s_touch_read != nullptr)
@@ -274,13 +294,16 @@ void logical_to_native(lv_display_t* disp, int32_t lx, int32_t ly, int32_t* nx, 
     }
 }
 
-void cmd_tap(int argc, char** argv)
+bool on_screen(lv_display_t* disp, int32_t x, int32_t y)
 {
-    if (argc < 3)
-    {
-        reply_err("usage: tap <x> <y> [ms]");
-        return;
-    }
+    return x >= 0 && y >= 0 && x < lv_display_get_horizontal_resolution(disp) &&
+           y < lv_display_get_vertical_resolution(disp);
+}
+
+// A stroke from (x0,y0) to (x1,y1) in logical coordinates: moving for move_ms, then held
+// for hold_ms. A tap is a stroke that does not move.
+void inject_stroke(const char* what, int32_t x0, int32_t y0, int32_t x1, int32_t y1, int move_ms, int hold_ms)
+{
     lv_display_t* disp = lv_display_get_default();
     lv_indev_t* indev = bsp_display_get_input_dev();
     if (disp == nullptr || indev == nullptr)
@@ -288,20 +311,12 @@ void cmd_tap(int argc, char** argv)
         reply_err("no display");
         return;
     }
-    const int32_t lx = std::atoi(argv[1]);
-    const int32_t ly = std::atoi(argv[2]);
-    int ms = argc > 3 ? std::atoi(argv[3]) : 80;
-    if (ms < 20)
-    {
-        ms = 20;
-    }
     if (!bsp_display_lock(2000))
     {
         reply_err("display busy");
         return;
     }
-    if (lx < 0 || ly < 0 || lx >= lv_display_get_horizontal_resolution(disp) ||
-        ly >= lv_display_get_vertical_resolution(disp))
+    if (!on_screen(disp, x0, y0) || !on_screen(disp, x1, y1))
     {
         bsp_display_unlock();
         reply_err("point outside the screen");
@@ -312,15 +327,43 @@ void cmd_tap(int argc, char** argv)
         s_touch_read = lv_indev_get_read_cb(indev);
         lv_indev_set_read_cb(indev, injecting_read_cb);
     }
-    logical_to_native(disp, lx, ly, &s_inject.native_x, &s_inject.native_y);
-    s_inject.release_at_us = esp_timer_get_time() + static_cast<int64_t>(ms) * 1000;
+    logical_to_native(disp, x0, y0, &s_inject.x0, &s_inject.y0);
+    logical_to_native(disp, x1, y1, &s_inject.x1, &s_inject.y1);
+    s_inject.start_us = esp_timer_get_time();
+    s_inject.move_us = static_cast<int64_t>(move_ms) * 1000;
+    s_inject.release_at_us = s_inject.start_us + static_cast<int64_t>(move_ms + hold_ms) * 1000;
     s_inject.active = true;
     bsp_display_unlock();
-    for (int waited = 0; s_inject.active && waited < ms + 1000; waited += 10)
+    for (int waited = 0; s_inject.active && waited < move_ms + hold_ms + 1000; waited += 10)
     {
         vTaskDelay(pdMS_TO_TICKS(10));
     }
-    reply_ok("tap");
+    reply_ok("%s", what);
+}
+
+void cmd_tap(int argc, char** argv)
+{
+    if (argc < 3)
+    {
+        reply_err("usage: tap <x> <y> [ms]");
+        return;
+    }
+    const int32_t x = std::atoi(argv[1]);
+    const int32_t y = std::atoi(argv[2]);
+    const int ms = argc > 3 ? std::atoi(argv[3]) : 80;
+    inject_stroke("tap", x, y, x, y, 0, ms < 20 ? 20 : ms);
+}
+
+void cmd_drag(int argc, char** argv)
+{
+    if (argc < 5)
+    {
+        reply_err("usage: drag <x0> <y0> <x1> <y1> [ms]");
+        return;
+    }
+    const int ms = argc > 5 ? std::atoi(argv[5]) : 300;
+    inject_stroke("drag", std::atoi(argv[1]), std::atoi(argv[2]), std::atoi(argv[3]), std::atoi(argv[4]),
+                  ms < 40 ? 40 : ms, 40);
 }
 
 // ---------------------------------------------------------------------------------------
@@ -344,14 +387,15 @@ void cmd_help(int, char**)
     reply("restart            restart Trail Mate");
     reply("shot               screenshot of the panel (sappctl.py shot out.png)");
     reply("tap <x> <y> [ms]   inject a touch at a logical point");
+    reply("drag <x0> <y0> <x1> <y1> [ms]   inject a stroke (a swipe up resumes the saver)");
     reply_ok("help");
 }
 
 void handle_line(char* line)
 {
-    char* argv[6] = {};
+    char* argv[8] = {};
     int argc = 0;
-    for (char* tok = std::strtok(line, " \t"); tok != nullptr && argc < 6; tok = std::strtok(nullptr, " \t"))
+    for (char* tok = std::strtok(line, " \t"); tok != nullptr && argc < 8; tok = std::strtok(nullptr, " \t"))
     {
         argv[argc++] = tok;
     }
@@ -383,6 +427,10 @@ void handle_line(char* line)
     else if (std::strcmp(cmd, "tap") == 0)
     {
         cmd_tap(argc, argv);
+    }
+    else if (std::strcmp(cmd, "drag") == 0)
+    {
+        cmd_drag(argc, argv);
     }
     else if (std::strcmp(cmd, "help") == 0)
     {
@@ -482,7 +530,8 @@ void start_console()
     {
         return;
     }
-    if (xTaskCreate(console_task, "sentinel_con", kConsoleStackBytes, nullptr, tskIDLE_PRIORITY + 2,
+    // Above the app's background workers, so a busy app cannot starve "launcher".
+    if (xTaskCreate(console_task, "sentinel_con", kConsoleStackBytes, nullptr, tskIDLE_PRIORITY + 5,
                     &s_console_task) != pdPASS)
     {
         s_console_task = nullptr;

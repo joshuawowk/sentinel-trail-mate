@@ -8,6 +8,7 @@
 #include "driver/gpio.h"
 #include "driver/uart.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "platform/esp/idf_common/bsp_runtime.h"
 #include "platform/esp/idf_common/gps_runtime.h"
 #include "platform/esp/idf_common/sx126x_radio.h"
@@ -686,20 +687,42 @@ int Tab5Board::configureLoraRadio(float freq_mhz, float bw_khz, uint8_t sf, uint
 
 bool Tab5Board::ensureRadioReady()
 {
+    // Every radio call comes through here, many times a second from the mesh loop. With no
+    // M5-Bus LoRa module fitted the SX126x never answers, and probing it on each call kept
+    // the SPI bus and the console (dozens of log lines per second) busy enough to starve
+    // the UI. Retry with a backoff instead: 1 s, 2 s, 4 s ... at most every 60 s, so a
+    // module fitted later is still found.
     static bool acquired = false;
-    if (!acquired)
+    static uint32_t failures = 0;
+    static int64_t next_attempt_us = 0;
+    if (acquired)
     {
-        acquired = radio().acquire();
-        if (acquired)
-        {
-            ESP_LOGI(kTag, "SX126x radio acquired");
-        }
-        else
-        {
-            ESP_LOGW(kTag, "SX126x radio acquire failed");
-        }
+        return true;
     }
-    return acquired;
+    const int64_t now_us = esp_timer_get_time();
+    if (failures != 0 && now_us < next_attempt_us)
+    {
+        return false;
+    }
+    acquired = radio().acquire();
+    if (acquired)
+    {
+        ESP_LOGI(kTag, "SX126x radio acquired after %lu failed attempts", static_cast<unsigned long>(failures));
+        failures = 0;
+        return true;
+    }
+    ++failures;
+    const uint32_t shift = failures < 7 ? failures - 1 : 6;
+    const int64_t delay_us = std::min<int64_t>(1000000LL << shift, 60000000LL);
+    next_attempt_us = now_us + delay_us;
+    if (failures <= 3 || failures % 10 == 0)
+    {
+        ESP_LOGW(kTag,
+                 "SX126x radio acquire failed (attempt %lu); no LoRa module answering, next try in %lld s",
+                 static_cast<unsigned long>(failures),
+                 static_cast<long long>(delay_us / 1000000));
+    }
+    return false;
 }
 
 void Tab5Board::copyOwnerTag(const char* src, char* dst, size_t dst_len)

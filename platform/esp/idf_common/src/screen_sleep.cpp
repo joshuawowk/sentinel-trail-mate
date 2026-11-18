@@ -22,6 +22,10 @@
 #include "platform/ui/settings_store.h"
 
 #if defined(TRAIL_MATE_ESP_BOARD_TAB5)
+#include <cstdlib>
+
+#include "lvgl.h"
+#include "platform/esp/idf_common/screen_touch.h"
 extern "C"
 {
 #include "bsp/trail_mate_tab5_runtime.h"
@@ -384,7 +388,103 @@ void request_resume()
 
 ResumeMethod resume_method()
 {
+#if defined(TRAIL_MATE_ESP_BOARD_TAB5)
+    return ResumeMethod::SwipeUp;
+#else
     return ResumeMethod::SpaceKey;
+#endif
 }
 
 } // namespace platform::ui::screen
+
+#if defined(TRAIL_MATE_ESP_BOARD_TAB5)
+namespace platform::esp::idf_common::screen_touch
+{
+namespace
+{
+
+// The same gesture as the Wio Tracker L2's, scaled for the Tab5's 1280x720 panel.
+constexpr int32_t kResumeSwipeMinUp = 90;
+constexpr int32_t kResumeSwipeMaxSideways = 160;
+
+lv_indev_read_cb_t s_panel_read = nullptr;
+bool s_touching = false;
+bool s_tracking = false;
+lv_point_t s_start{};
+lv_point_t s_last{};
+
+void filtered_read_cb(lv_indev_t* indev, lv_indev_data_t* data)
+{
+    if (s_panel_read != nullptr)
+    {
+        s_panel_read(indev, data);
+    }
+    (void)filter(indev, data);
+}
+
+} // namespace
+
+bool filter(lv_indev_t* indev, lv_indev_data_t* data)
+{
+    const bool pressed = data->state == LV_INDEV_STATE_PRESSED;
+    const bool touch_started = pressed && !s_touching;
+    s_touching = pressed;
+    const bool screen_power_active =
+        ::platform::ui::screen::is_sleeping() || ::platform::ui::screen::is_saver_active();
+
+    if (pressed)
+    {
+        if (!screen_power_active)
+        {
+            // The screen woke while the finger is down: drop the unfinished gesture.
+            s_tracking = false;
+            return false;
+        }
+        // Upright (logical) coordinates, so "up" is up whatever the rotation.
+        lv_point_t p = data->point;
+        lv_display_rotate_point(lv_indev_get_display(indev), &p);
+        if (touch_started)
+        {
+            s_tracking = true;
+            s_start = p;
+        }
+        s_last = p;
+        // Any touch wakes Sleeping -> WakePreview and keeps the preview up.
+        ::platform::ui::screen::handle_input();
+        data->state = LV_INDEV_STATE_RELEASED;
+        return true;
+    }
+
+    if (!s_tracking)
+    {
+        return false;
+    }
+    s_tracking = false;
+    const int32_t up = s_start.y - s_last.y;
+    const int32_t sideways = std::abs(s_last.x - s_start.x);
+    if (up >= kResumeSwipeMinUp && sideways <= kResumeSwipeMaxSideways)
+    {
+        ESP_LOGI("screen-touch", "resume swipe start=(%ld,%ld) end=(%ld,%ld)",
+                 static_cast<long>(s_start.x), static_cast<long>(s_start.y),
+                 static_cast<long>(s_last.x), static_cast<long>(s_last.y));
+        ::platform::ui::screen::request_resume();
+    }
+    else
+    {
+        ::platform::ui::screen::handle_input_release();
+    }
+    return true;
+}
+
+void install(lv_indev_t* indev)
+{
+    if (indev == nullptr || lv_indev_get_read_cb(indev) == filtered_read_cb)
+    {
+        return;
+    }
+    s_panel_read = lv_indev_get_read_cb(indev);
+    lv_indev_set_read_cb(indev, filtered_read_cb);
+}
+
+} // namespace platform::esp::idf_common::screen_touch
+#endif

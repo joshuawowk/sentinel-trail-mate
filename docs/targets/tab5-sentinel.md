@@ -30,6 +30,14 @@ launcher (see "Returning to the launcher" in Sentinel's
 [firmware-authors.md](https://github.com/joshuawowk/sentinel-bootloader/blob/main/docs/firmware-authors.md)).
 Pressing the Tab5's reset button or a power cycle also returns to the launcher.
 
+### Screen sleep on the Tab5
+
+After the screen timeout the panel goes dark. A touch wakes it into the screen saver (time
+and unread count), and **swipe up** returns to the page that was open; the touch that
+wakes the screen never reaches the controls under it. (The ESP-IDF targets used to ask for
+SPACE here, which the Tab5 has no key for, so the Tab5 seemed to freeze after its first
+sleep.)
+
 Restarts that Trail Mate makes itself (Settings that need a restart, a crash) keep Trail Mate
 running; after three crashes in a row Sentinel starts its launcher.
 
@@ -114,6 +122,7 @@ tools/sappctl.py launcher          # Return to Sentinel
 | `restart` | Restart Trail Mate (stays in Trail Mate) |
 | `shot` | Screenshot of the DSI frame buffer (RLE16, as `sentinelctl.py shot` decodes) |
 | `tap X Y [ms]` | Inject a touch at a logical point |
+| `drag X0 Y0 X1 Y1 [ms]` | Inject a stroke; `drag 640 600 640 200` resumes from the screen saver |
 | `help` | List the commands |
 
 With other ESP32 boards on USB, point `sappctl.py` at the Tab5 with `-p` or `SAPP_PORT`
