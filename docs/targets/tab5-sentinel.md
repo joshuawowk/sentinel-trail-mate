@@ -128,6 +128,23 @@ tools/sappctl.py launcher          # Return to Sentinel
 With other ESP32 boards on USB, point `sappctl.py` at the Tab5 with `-p` or `SAPP_PORT`
 (`/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_<MAC>-if00`).
 
+## Verified on hardware
+
+On an M5Stack Tab5 (ESP32-P4 v1.3, ST7123 panel, C6 slave 2.12.16) under Sentinel
+Bootloader v0.1.5, 2026-11-18:
+
+- Installs from a merged image and starts from the launcher; the boot log shows the
+  Sentinel console, the ST7123 panel and touch, the SD card over SDMMC, `ffat` formatted on
+  first start and charging enabled.
+- The C6 is left alone; the launcher's Wi-Fi works after a Trail Mate session.
+- With no LoRa module fitted the SX126x probe backs off (one try, then 1 s ... 60 s).
+- Screen sleep: a touch shows the saver with "Swipe up to resume"; a swipe up (injected
+  and by finger) returns to the main menu.
+- A finger tap on **Return to Sentinel** opens the dialog, and confirming starts the
+  launcher (boot record `warm+armed/firmware` -> `warm+armed/launcher+clean`). The console's
+  `launcher` command does the same.
+- `sappctl.py info`, `shot` and `drag` work against Trail Mate.
+
 ## Reverse-engineering notes
 
 The port was checked against the shipped upstream images (v1.2.3, T-Display-P4 TFT, the
