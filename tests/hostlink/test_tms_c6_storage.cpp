@@ -55,7 +55,11 @@ ScalarReadResult read_bool_into(const char* ns, const char* key, bool* out)
 bool put_string(const char*, const char* key, const char* value)
 {
     if (reject_write) return false;
-    strings[key] = value;
+    // As the ESP settings store does: an empty string is stored as no key at all.
+    if (value[0] == '\0')
+        strings.erase(key);
+    else
+        strings[key] = value;
     return true;
 }
 bool get_string_into(const char*, const char* key, char* out, size_t capacity, size_t* length)
@@ -92,8 +96,11 @@ int main()
     c.espnow_channel = 14;
     std::strcpy(c.wifi_sta_ssid, "Mountain");
     std::strcpy(c.wifi_sta_password, "private-value");
+    // The access-point password is empty: it reads back as a missing key, which must
+    // not make the companion's own working document invalid.
     assert(apply_c6_records());
-    assert(numbers.size() == 10 && strings.size() == 4);
+    assert(numbers.size() == 10 && strings.size() == 3);
+    assert(strings.find("wifi_ap_password") == strings.end());
     assert(strings["wifi_sta_password"] == "private-value");
     c.wifi_ap_channel = 0;
     const auto before = numbers;

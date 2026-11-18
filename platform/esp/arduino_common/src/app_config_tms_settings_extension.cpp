@@ -421,7 +421,15 @@ bool apply_c6_records()
     {
         size_t length = 0;
         auto* scratch = reinterpret_cast<char*>(s_state.timezone_tzdef);
-        return store::put_string(ns, key, value) && store::get_string_into(ns, key, scratch, sizeof(s_state.timezone_tzdef), &length) && !std::strcmp(scratch, value);
+        if (!store::put_string(ns, key, value)) return false;
+        if (store::get_string_into(ns, key, scratch, sizeof(s_state.timezone_tzdef), &length))
+        {
+            return !std::strcmp(scratch, value);
+        }
+        // The ESP store removes a key written as "", so an empty value reads back as
+        // missing. Without this, a device whose C6 Wi-Fi was never set up (empty SSID)
+        // refused its own working document on every start after the first.
+        return value[0] == '\0';
     };
     return text("wifi_sta_ssid", c.wifi_sta_ssid) && text("wifi_sta_password", c.wifi_sta_password) &&
            text("wifi_ap_ssid", c.wifi_ap_ssid) && text("wifi_ap_password", c.wifi_ap_password);
