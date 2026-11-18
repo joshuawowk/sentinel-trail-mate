@@ -228,7 +228,13 @@ struct InjectedTouch
     int64_t start_us = 0;
     int64_t move_us = 0; // 0 for a tap
     int64_t release_at_us = 0;
+    uint32_t pressed_reads = 0;
 };
+
+// A press must reach LVGL before its release. The console waits for the display lock while
+// LVGL renders (a full 1280x720 frame takes tens of ms), so a short tap could otherwise be
+// read only once, already released, and click nothing.
+constexpr uint32_t kMinPressedReads = 3;
 
 InjectedTouch s_inject;
 lv_indev_read_cb_t s_touch_read = nullptr;
@@ -249,9 +255,10 @@ void injecting_read_cb(lv_indev_t* indev, lv_indev_data_t* data)
             data->point.x = s_inject.x1;
             data->point.y = s_inject.y1;
         }
-        if (now < s_inject.release_at_us)
+        if (now < s_inject.release_at_us || s_inject.pressed_reads < kMinPressedReads)
         {
             data->state = LV_INDEV_STATE_PRESSED;
+            ++s_inject.pressed_reads;
         }
         else
         {
@@ -332,14 +339,15 @@ void inject_stroke(const char* what, int32_t x0, int32_t y0, int32_t x1, int32_t
     s_inject.start_us = esp_timer_get_time();
     s_inject.move_us = static_cast<int64_t>(move_ms) * 1000;
     s_inject.release_at_us = s_inject.start_us + static_cast<int64_t>(move_ms + hold_ms) * 1000;
+    s_inject.pressed_reads = 0;
     s_inject.active = true;
     bsp_display_unlock();
     // The Tab5's touch indev runs in LV_INDEV_MODE_EVENT (esp_lvgl_port reads it only when
     // the touch controller raises its interrupt), so drive the reads while the stroke lasts.
     const bool event_driven = lv_indev_get_mode(indev) == LV_INDEV_MODE_EVENT;
-    for (int waited = 0; s_inject.active && waited < move_ms + hold_ms + 1000; waited += 10)
+    for (int waited = 0; s_inject.active && waited < move_ms + hold_ms + 3000; waited += 10)
     {
-        if (event_driven && bsp_display_lock(100))
+        if (event_driven && bsp_display_lock(500))
         {
             lv_indev_read(indev);
             bsp_display_unlock();

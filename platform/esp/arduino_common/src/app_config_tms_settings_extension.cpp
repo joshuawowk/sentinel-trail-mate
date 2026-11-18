@@ -601,29 +601,48 @@ bool finishDocument(void*, bool applying, uint16_t schema_version)
         return true;
     }
 
+    // Name the owner that refused a working document: the decoder reports only
+    // "invalid_known_value" for every failure below.
+    const auto apply_failed = [](const char* step)
+    {
+        std::printf("[AppCfg][TMS] apply failed step=%s\n", step);
+        return false;
+    };
     s_state.enabled_imes[s_state.enabled_imes_len] = '\0';
     s_state.auto_reply_text[s_state.auto_reply_text_len] = '\0';
     if (!write_base_scalar_settings())
     {
-        return false;
+        return apply_failed("base_scalar_settings");
     }
-    if (!::platform::ui::settings_store::put_string(kSettingsNs, "display_locale", s_state.locale) ||
-        !::platform::ui::settings_store::put_string(kSettingsNs, "enabled_imes", s_state.enabled_imes) ||
-        !::platform::ui::settings_store::put_blob(kSettingsNs, "timezone_tzdef",
-                                                  s_state.timezone_tzdef, s_state.timezone_tzdef_len) ||
-        !::platform::ui::settings_store::put_string(kSettingsNs, ::platform::ui::auto_reply::kTextKey,
-                                                    s_state.auto_reply_text) ||
-        !::platform::ui::wifi::replace_saved_profiles(s_state.wifi_enabled, s_state.wifi_profiles,
+    if (!::platform::ui::settings_store::put_string(kSettingsNs, "display_locale", s_state.locale))
+    {
+        return apply_failed("display_locale");
+    }
+    if (!::platform::ui::settings_store::put_string(kSettingsNs, "enabled_imes", s_state.enabled_imes))
+    {
+        return apply_failed("enabled_imes");
+    }
+    if (!::platform::ui::settings_store::put_blob(kSettingsNs, "timezone_tzdef",
+                                                  s_state.timezone_tzdef, s_state.timezone_tzdef_len))
+    {
+        return apply_failed("timezone_tzdef");
+    }
+    if (!::platform::ui::settings_store::put_string(kSettingsNs, ::platform::ui::auto_reply::kTextKey,
+                                                    s_state.auto_reply_text))
+    {
+        return apply_failed("auto_reply_text");
+    }
+    if (!::platform::ui::wifi::replace_saved_profiles(s_state.wifi_enabled, s_state.wifi_profiles,
                                                       s_state.wifi_profile_count))
     {
-        return false;
+        return apply_failed("wifi_profiles");
     }
     // Stop at the first failed owner. Do not apply later network/radio settings
     // after a failed cache write; the original SD document can replay on reboot.
     if (s_state.network_seen != 0U &&
         !::platform::ui::reticulum_network_config::setFromTms(s_state.network))
     {
-        return false;
+        return apply_failed("reticulum_network");
     }
 #if defined(ARDUINO_T_DECK_PRO) && defined(TRAIL_MATE_TDECK_PRO_A7682E)
     if (s_state.cellular_seen != 0U && !::platform::ui::a7682e::save_config(s_state.cellular))
@@ -632,7 +651,7 @@ bool finishDocument(void*, bool applying, uint16_t schema_version)
     }
 #endif
 #if defined(CONFIG_IDF_TARGET_ESP32P4)
-    if (!apply_c6_records()) return false;
+    if (!apply_c6_records()) return apply_failed("c6_companion");
 #endif
     return true;
 }
