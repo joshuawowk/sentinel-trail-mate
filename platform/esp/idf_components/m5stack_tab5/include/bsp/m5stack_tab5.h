@@ -370,6 +370,16 @@ extern "C"
     lv_indev_t* bsp_display_get_input_dev(void);
 
     /**
+     * @brief Get the MIPI-DSI panel handle LVGL draws to
+     *
+     * @note Set by bsp_display_start(). Its frame buffer (esp_lcd_dpi_panel_get_frame_buffer)
+     *       holds what the panel is scanning, in native (portrait) orientation.
+     *
+     * @return Panel handle or NULL when the display is not initialized
+     */
+    esp_lcd_panel_handle_t bsp_display_get_panel_handle(void);
+
+    /**
      * @brief Take LVGL mutex
      *
      * @param timeout_ms Timeout in [ms]. 0 will block indefinitely.

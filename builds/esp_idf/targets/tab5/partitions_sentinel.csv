@@ -1,0 +1,10 @@
+# Trail Mate on the Tab5 under Sentinel Bootloader.
+# Sentinel installs the app row as ota_0 sized to the image, keeps nvs at its size,
+# gives the blank ffat row its declared 1 MiB and keeps the coredump row blank.
+# The offsets are only used when this merged image is flashed on its own at 0x0.
+# Name,   Type, SubType,  Offset,   Size,     Flags
+nvs,      data, nvs,      0x9000,   0x6000,
+otadata,  data, ota,      0xF000,   0x2000,
+app0,     app,  ota_0,    0x20000,  0x700000,
+ffat,     data, fat,      0x720000, 0x100000,
+coredump, data, coredump, 0x820000, 0x10000,

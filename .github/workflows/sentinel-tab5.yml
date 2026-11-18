@@ -1,0 +1,82 @@
+name: Tab5 (Sentinel)
+
+# Builds Trail Mate for the M5Stack Tab5: the standalone `tab5` image and the Sentinel
+# Bootloader image (-DTRAIL_MATE_SENTINEL=ON), and packages the latter for installation
+# with Sentinel. Tags attach the Sentinel image to the release.
+
+on:
+  push:
+    branches: ["main", "sentinel/**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: sentinel-tab5-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ESP-IDF Build (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.5.4
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: tab5
+            dir: build.tab5
+            sentinel: "OFF"
+          - name: tab5-sentinel
+            dir: build.tab5_sentinel
+            sentinel: "ON"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Extract version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION=$(python3 scripts/read_changelog.py --version)
+          fi
+          echo "version=${VERSION:-unknown}" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        shell: bash
+        run: |
+          source "${IDF_PATH}/export.sh"
+          idf.py -B "${{ matrix.dir }}" \
+            -D TRAIL_MATE_IDF_TARGET=tab5 \
+            -D TRAIL_MATE_SENTINEL=${{ matrix.sentinel }} \
+            -D "PROJECT_VER=${{ steps.version.outputs.version }}" build
+          python scripts/check_idf_app_version.py "${{ matrix.dir }}/trail-mate.bin" \
+            --version "${{ steps.version.outputs.version }}"
+
+      - name: Package for Sentinel
+        if: matrix.sentinel == 'ON'
+        shell: bash
+        run: |
+          source "${IDF_PATH}/export.sh"
+          # The asset name matches SENTINEL_APP_INFO in sentinel_runtime.cpp, so Sentinel's
+          # "Update" finds it in each release.
+          python tools/sentinel/package_tab5.py --build "${{ matrix.dir }}" --dist dist
+
+      - name: Upload image
+        if: matrix.sentinel == 'ON'
+        uses: actions/upload-artifact@v4
+        with:
+          name: trail-mate-tab5-sentinel
+          path: dist/
+          retention-days: 14
+
+      - name: Attach to release
+        if: matrix.sentinel == 'ON' && startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/trail-mate-tab5-sentinel.bin
