@@ -64,6 +64,7 @@ locations. Different files within a vendored component can have different terms.
 | `third_party/lilygo_adafruit_epd/` | Dean Miller / Adafruit Industries credits and BSD notice in [Adafruit_EPD.cpp](third_party/lilygo_adafruit_epd/src/Adafruit_EPD.cpp). Exact inherited version and completeness of the BSD notice require review. |
 | `platform/esp/third_party/lilygo_cpp_bus_driver/` | Retain [existing GPLv3 text](platform/esp/third_party/lilygo_cpp_bus_driver/LICENSE) and upstream per-file credits. Exact imported revision and selected-file terms remain to be established. |
 | `platform/esp/idf_components/m5stack_tab5/` | Retain [Apache-2.0 license](platform/esp/idf_components/m5stack_tab5/LICENSE) and upstream credits. |
+| `third_party/sentinel_app/` | `sentinel_app.h` from [Sentinel Bootloader](https://github.com/joshuawowk/sentinel-bootloader), vendored unchanged. [MIT](third_party/sentinel_app/LICENSE). |
 | `modules/core_sstv/` DSP material | Preserve [MIT notice and Jonathan P Dawson / dawsonjon credits](modules/core_sstv/LICENSE-DSP) and any other applicable per-file notices. |
 
 ## Website, fonts and data
