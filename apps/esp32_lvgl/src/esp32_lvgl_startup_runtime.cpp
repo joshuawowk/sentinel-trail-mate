@@ -13,6 +13,7 @@
 #include "platform/esp/idf_common/debug/sd_coredump_export.h"
 #include "platform/esp/idf_common/reticulum_call_runtime_support.h"
 #if defined(TRAIL_MATE_SENTINEL)
+#include "a164_keyboard.h"
 #include "platform/esp/idf_common/sentinel_runtime.h"
 #endif
 #include "platform/esp/idf_common/startup_support.h"
@@ -178,6 +179,12 @@ void runEsp32LvglStartupRuntime(const Esp32LvglRuntimeConfig& config)
 #if defined(TRAIL_MATE_SENTINEL)
     // The Tab5's IO expanders are reset and programmed by the display bring-up.
     platform::esp::idf_common::sentinel::on_board_initialized();
+    // Bring up the M5Stack A164 I2C keyboard (0x6D on GPIO0/1, ExtPort1) now that
+    // the display and LVGL port are up. Safe if the keyboard is undocked -- the
+    // driver hot-detects it. It registers a KEYPAD indev on the shared LVGL
+    // group, so physical typing lands in the focused field and the arrow keys
+    // navigate the menus through Trail Mate's existing keypad machinery.
+    (void)a164_keyboard_init(lv_display_get_default());
 #endif
     showBootUi(config, waking_from_sleep, "Starting services...");
     if (platform::esp::boards::syncSystemTimeFromBoardRtc())
