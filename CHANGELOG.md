@@ -22,9 +22,10 @@ stable firmware release. Hardware support and validation remain target-specific.
   The Sentinel profile builds for a 64 B PSRAM (L2) cache line
   (`CONFIG_CACHE_L2_CACHE_LINE_64B`), matching every Sentinel app: esp-hosted
   aligns its SDIO DMA buffers to 64 B, which a 128 B line (the standalone
-  `tab5` default) would reject under ESP-IDF v5.5. Verified on hardware:
-  connects on 3 of 3 boots, the Reticulum gateway reaches a public node, and
-  Wi-Fi off/on re-associates.
+  `tab5` default) would reject under ESP-IDF v5.5. Verified on hardware: the
+  station associates on 3 of 3 boots with no SDIO alignment error, and Wi-Fi
+  off/on re-associates. (The Reticulum TCP gateway over the socket transport
+  was confirmed on an earlier build; the UI path and SNTP are not yet checked.)
 
 ## [1.2.5-sentinel.1] - 2026-11-19
 

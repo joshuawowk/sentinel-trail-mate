@@ -140,6 +140,7 @@ class SocketTcpTransport final : public WifiTcpTransport
         if (host == nullptr || host[0] == '\0' || std::strlen(host) >= TM_C6_WIFI_TCP_HOST_LEN || port == 0)
         {
             std::lock_guard<std::mutex> lock(mutex_);
+            ++generation_; // invalidate any in-flight open so it can't publish Connected later
             close_locked();
             set_locked(WifiTcpState::Error, TM_C6_ERROR_INTERNAL, "invalid_endpoint");
             return false;
@@ -147,6 +148,7 @@ class SocketTcpTransport final : public WifiTcpTransport
         if (!station_has_address())
         {
             std::lock_guard<std::mutex> lock(mutex_);
+            ++generation_;
             close_locked();
             set_locked(WifiTcpState::Disconnected, TM_C6_ERROR_NOT_CONNECTED, "wifi_not_ready");
             return false;
