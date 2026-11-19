@@ -1,4 +1,7 @@
 #include "platform/esp/idf_common/wireless_companion/c6_companion.h"
+#if defined(ESP_PLATFORM) && defined(TRAIL_MATE_SENTINEL)
+#include "platform/esp/idf_common/wireless_companion/socket_tcp_transport.h"
+#endif
 
 #include "hostlink/c6/c6_frame_codec.h"
 #include "hostlink/c6/c6_protocol.h"
@@ -2338,7 +2341,13 @@ WirelessCompanion& c6_companion()
 
 WifiTcpTransport& c6_wifi_tcp_transport()
 {
+#if defined(ESP_PLATFORM) && defined(TRAIL_MATE_SENTINEL)
+    // Under Sentinel, Wi-Fi is a network interface on the P4 (esp-hosted on the C6), so TCP
+    // runs on the P4's own lwIP stack instead of Trail Mate's HostLink proxy on the C6.
+    return socket_tcp_transport();
+#else
     return s_c6_companion;
+#endif
 }
 
 bool ensure_c6_companion_started()

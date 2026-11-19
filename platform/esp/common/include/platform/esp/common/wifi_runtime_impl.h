@@ -37,7 +37,19 @@
 #define TRAIL_MATE_WIFI_HAS_BLE_MANAGER 0
 #endif
 
-#if defined(TRAIL_MATE_ESP_BOARD_TAB5)
+#if defined(TRAIL_MATE_SENTINEL)
+// Under Sentinel Bootloader the C6 runs Sentinel's shared esp-hosted firmware: esp_wifi_* go
+// to it through esp_wifi_remote once sentinel_wifi_link_up() has connected. Its supply stays on
+// (the launcher and the other firmware use it), so this runtime never switches it.
+#include "sentinel_wifi.h"
+#define TRAIL_MATE_WIFI_SWITCHES_C6_POWER 0
+#elif defined(TRAIL_MATE_ESP_BOARD_TAB5)
+#define TRAIL_MATE_WIFI_SWITCHES_C6_POWER 1
+#else
+#define TRAIL_MATE_WIFI_SWITCHES_C6_POWER 0
+#endif
+
+#if TRAIL_MATE_WIFI_SWITCHES_C6_POWER
 #include "bsp/trail_mate_tab5_runtime.h"
 #endif
 
@@ -1078,7 +1090,7 @@ bool ensure_stack_ready()
         return true;
     }
 
-#if defined(TRAIL_MATE_ESP_BOARD_TAB5)
+#if TRAIL_MATE_WIFI_SWITCHES_C6_POWER
     trail_mate_tab5_set_wifi_power_enabled(true);
 #endif
 
@@ -1263,8 +1275,22 @@ bool initialize_wifi_driver_once(const char* attempt_tag, WifiInitProfile profil
     std::snprintf(stage, sizeof(stage), "before init %s", attempt_tag ? attempt_tag : "attempt");
     log_heap_snapshot(stage);
 
+#if defined(TRAIL_MATE_SENTINEL)
+    if (!sentinel_wifi_link_up())
+    {
+        std::printf("[WiFi] esp-hosted link to the C6 is down attempt=%s\n",
+                    attempt_tag ? attempt_tag : "attempt");
+        set_status_message("Wi-Fi co-processor not answering");
+        return false;
+    }
+    // The buffer profiles size the ESP32-S3's own driver in internal RAM; here the driver
+    // runs on the C6, which gets the defaults Sentinel and its apps use.
+    wifi_init_config_t config = WIFI_INIT_CONFIG_DEFAULT();
+    (void)profile;
+#else
     wifi_init_config_t config = WIFI_INIT_CONFIG_DEFAULT();
     apply_wifi_init_profile(config, profile);
+#endif
     log_wifi_init_profile(attempt_tag, profile, config);
     const esp_err_t init_err = esp_wifi_init(&config);
     if (init_err != ESP_OK && init_err != ESP_ERR_WIFI_INIT_STATE)
@@ -1399,7 +1425,7 @@ bool ensure_wifi_started()
         return false;
     }
 
-#if defined(TRAIL_MATE_ESP_BOARD_TAB5)
+#if TRAIL_MATE_WIFI_SWITCHES_C6_POWER
     trail_mate_tab5_set_wifi_power_enabled(true);
 #endif
 
@@ -1462,7 +1488,7 @@ bool stop_wifi_runtime(const char* success_message)
             log_heap_snapshot("after deinit");
         }
     }
-#if defined(TRAIL_MATE_ESP_BOARD_TAB5)
+#if TRAIL_MATE_WIFI_SWITCHES_C6_POWER
     trail_mate_tab5_set_wifi_power_enabled(false);
 #endif
     s_runtime.wifi_started = false;

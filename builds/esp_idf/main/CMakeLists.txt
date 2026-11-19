@@ -38,11 +38,17 @@ elseif(TRAIL_MATE_IDF_TARGET MATCHES "^t_display_p4_(tft|amoled)(_lr2021)?$")
         ${TRAILMATE_ESP_IDF_T_DISPLAY_P4_BOARD_SOURCES})
 endif()
 
+set(TRAILMATE_ESP_IDF_SENTINEL_REQUIRES)
 if(TRAIL_MATE_SENTINEL)
-    # Sentinel Bootloader integration (Tab5 only): Return to Sentinel and the console.
+    # Sentinel Bootloader integration (Tab5 only): Return to Sentinel, the console, and Wi-Fi
+    # through the C6's shared esp-hosted firmware (sentinel_wifi, which pulls in esp_hosted).
+    # During early expansion TRAIL_MATE_SENTINEL comes from the build property the root
+    # CMakeLists.txt sets.
     list(APPEND TRAILMATE_ESP_IDF_PLATFORM_SOURCES
         "${TRAILMATE_ROOT}/platform/esp/idf_common/src/sentinel_runtime.cpp"
+        "${TRAILMATE_ROOT}/platform/esp/idf_common/src/socket_tcp_transport.cpp"
         "${TRAILMATE_ROOT}/modules/ui_shared/src/ui/assets/sentinel_home.c")
+    list(APPEND TRAILMATE_ESP_IDF_SENTINEL_REQUIRES sentinel_wifi)
 endif()
 
 if(TRAIL_MATE_IDF_TARGET MATCHES "_lr2021$")
@@ -94,6 +100,7 @@ idf_component_register(
         nvs_flash
         sensor_bmi270
         t_display_p4
+        ${TRAILMATE_ESP_IDF_SENTINEL_REQUIRES}
 )
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE

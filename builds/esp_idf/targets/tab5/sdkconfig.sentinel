@@ -13,3 +13,46 @@ CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="builds/esp_idf/targets/tab5/partitions_s
 # CONFIG_ESP_CONSOLE_UART_DEFAULT is not set
 CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
 CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+
+# Wi-Fi through the ESP32-C6, which runs Sentinel's shared esp-hosted slave firmware (2.12.x)
+# over SDIO slot 1: the sentinel_wifi component (esp_hosted host, esp_wifi_remote). The same
+# settings as Sentinel Bootloader's firmware/sdkconfig.defaults; the C6 is never flashed.
+CONFIG_ESP_HOST_WIFI_ENABLED=n
+CONFIG_ESP_WIFI_REMOTE_LIBRARY_HOSTED=y
+CONFIG_SLAVE_IDF_TARGET_ESP32C6=y
+CONFIG_ESP_HOSTED_P4_DEV_BOARD_NONE=y
+CONFIG_ESP_HOSTED_SDIO_HOST_INTERFACE=y
+CONFIG_ESP_HOSTED_SDIO_SLOT_1=y
+CONFIG_ESP_HOSTED_SDIO_4_BIT_BUS=y
+CONFIG_ESP_HOSTED_PRIV_SDIO_PIN_CLK_SLOT_1=12
+CONFIG_ESP_HOSTED_PRIV_SDIO_PIN_CMD_SLOT_1=13
+CONFIG_ESP_HOSTED_PRIV_SDIO_PIN_D0_SLOT_1=11
+CONFIG_ESP_HOSTED_PRIV_SDIO_PIN_D1_4BIT_BUS_SLOT_1=10
+CONFIG_ESP_HOSTED_PRIV_SDIO_PIN_D2_4BIT_BUS_SLOT_1=9
+CONFIG_ESP_HOSTED_PRIV_SDIO_PIN_D3_4BIT_BUS_SLOT_1=8
+CONFIG_ESP_HOSTED_SDIO_GPIO_RESET_SLAVE=15
+# Must match the slave build; a mismatch aborts at boot.
+CONFIG_ESP_HOSTED_SDIO_OPTIMIZATION_RX_STREAMING_MODE=y
+# esp-hosted preallocates ~90 KB at start; keep it out of internal RAM.
+CONFIG_ESP_HOSTED_MEMPOOL_PREFER_SPIRAM=y
+CONFIG_ESP_HOSTED_SDIO_TX_Q_SIZE=20
+CONFIG_ESP_HOSTED_SDIO_RX_Q_SIZE=20
+CONFIG_WIFI_RMT_ENTERPRISE_SUPPORT=n
+CONFIG_ESP_WIFI_REMOTE_EAP_ENABLED=n
+# A dead link must not restart Trail Mate: by default esp-hosted reboots the host on a
+# transport failure, which would turn one bad bring-up into a crash loop (and after three,
+# Sentinel's launcher).
+CONFIG_ESP_HOSTED_TRANSPORT_RESTART_ON_FAILURE=n
+# esp-hosted features Trail Mate does not use.
+CONFIG_ESP_HOSTED_ENABLE_ITWT=n
+CONFIG_ESP_HOSTED_ENABLE_PEER_DATA_TRANSFER=n
+# lwIP buffers in PSRAM and a real TCP window: the default 5.7 KiB window caps a download
+# through the SDIO-attached radio at a few dozen KiB/s (measured by Sentinel on this board).
+CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
+CONFIG_LWIP_WND_SCALE=y
+CONFIG_LWIP_TCP_RCV_SCALE=3
+CONFIG_LWIP_TCP_WND_DEFAULT=65534
+CONFIG_LWIP_TCP_SND_BUF_DEFAULT=32768
+CONFIG_LWIP_TCP_RECVMBOX_SIZE=64
+CONFIG_LWIP_TCPIP_RECVMBOX_SIZE=64
+CONFIG_LWIP_TCP_SACK_OUT=y
