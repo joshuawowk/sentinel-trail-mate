@@ -19,7 +19,6 @@
 #include "boards/t_display_p4/t_display_p4_board.h"
 #include "platform/esp/idf_common/usb_console_runtime.h"
 #endif
-#include "platform/ui/screen_runtime.h"
 #include "driver/sdmmc_host.h"
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
@@ -28,6 +27,7 @@
 #include "platform/esp/idf_common/bsp_runtime.h"
 #include "platform/esp/idf_common/sdmmc_host_runtime.h"
 #include "platform/ui/gps_runtime.h"
+#include "platform/ui/screen_runtime.h"
 #include "screen_sleep.h"
 #include "sdmmc_cmd.h"
 #include "team/usecase/team_pairing_service.h"
