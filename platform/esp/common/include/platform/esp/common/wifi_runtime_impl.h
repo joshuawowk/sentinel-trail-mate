@@ -1471,6 +1471,15 @@ bool stop_wifi_runtime(const char* success_message)
         s_runtime.wifi_started = false;
         clear_connection_details();
     }
+#if defined(TRAIL_MATE_SENTINEL)
+    // The driver runs on the C6 through esp_hosted; esp_wifi_deinit() there leaves the slave's
+    // Wi-Fi in a state that the next esp_wifi_init() does not fully recover (it associates but
+    // never completes, as after a cold SDIO failure). Stop but stay initialised, as sapp_net
+    // does, so a later enable only calls esp_wifi_start() again. The C6's supply is the
+    // launcher's, so it is not switched off here either.
+    log_heap_snapshot("after stop (kept initialised for esp-hosted)");
+    release_reconnect_memory_reserve();
+#else
     if (s_runtime.wifi_initialized)
     {
         const esp_err_t deinit_err = esp_wifi_deinit();
@@ -1494,6 +1503,7 @@ bool stop_wifi_runtime(const char* success_message)
     s_runtime.wifi_started = false;
     s_runtime.wifi_initialized = false;
     release_reconnect_memory_reserve();
+#endif
     clear_connection_details();
     restore_runtime_ble_after_wifi(success_message);
     set_status_message(success_message);
