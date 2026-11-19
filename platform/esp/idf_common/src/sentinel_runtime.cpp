@@ -505,6 +505,9 @@ void cmd_wifi_join(int argc, char** argv, bool hex)
         reply_err("display busy");
         return;
     }
+    // Persist first (connect() with an override only caches it in RAM), so the network is
+    // saved like the Wi-Fi page saves it and `wifi on` reconnects after a restart.
+    (void)wifi::save_config(config);
     const bool started = wifi::connect(&config);
     bsp_display_unlock();
     char ssid[sizeof(config.ssid)];

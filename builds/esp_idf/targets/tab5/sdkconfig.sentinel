@@ -56,3 +56,11 @@ CONFIG_LWIP_TCP_SND_BUF_DEFAULT=32768
 CONFIG_LWIP_TCP_RECVMBOX_SIZE=64
 CONFIG_LWIP_TCPIP_RECVMBOX_SIZE=64
 CONFIG_LWIP_TCP_SACK_OUT=y
+
+# esp-hosted's SDIO transport to the C6 needs a 1 kHz tick: at the IDF/Trail Mate default of
+# 100 Hz the link comes up (control RPCs work) but is too jittery to associate ("bus level
+# jitters", esp-hosted's own boot warning). Sentinel Bootloader and every Sentinel app run at
+# 1000 Hz. Only the Sentinel profile raises it; the standalone tab5 build stays at 100 Hz.
+# Safe here: Trail Mate's bare tick delays are vTaskDelay(1) yields, and its timers, queue
+# timeouts and the LoRa backoff use pdMS_TO_TICKS or esp_timer (wall-clock), not raw ticks.
+CONFIG_FREERTOS_HZ=1000

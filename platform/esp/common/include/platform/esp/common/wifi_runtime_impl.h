@@ -145,12 +145,12 @@ std::size_t internal_largest_block_bytes()
     return heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 }
 
-std::size_t psram_free_bytes()
+[[maybe_unused]] std::size_t psram_free_bytes()
 {
     return heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
 }
 
-std::size_t psram_largest_block_bytes()
+[[maybe_unused]] std::size_t psram_largest_block_bytes()
 {
     return heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
 }
@@ -389,7 +389,7 @@ const char* wifi_profile_name(WifiInitProfile profile)
     return "unknown";
 }
 
-void apply_wifi_init_profile(wifi_init_config_t& config, WifiInitProfile profile)
+[[maybe_unused]] void apply_wifi_init_profile(wifi_init_config_t& config, WifiInitProfile profile)
 {
     // Credentials are owned by settings_store. Avoid a second driver NVS
     // owner, and bound AMPDU reordering to this profile's actual RX capacity.
@@ -519,7 +519,7 @@ bool same_ssid(const Config& lhs, const Config& rhs)
     return std::strncmp(lhs.ssid, rhs.ssid, sizeof(lhs.ssid)) == 0;
 }
 
-int profile_index_for_ssid(const char* ssid)
+[[maybe_unused]] int profile_index_for_ssid(const char* ssid)
 {
     if (!ssid || ssid[0] == '\0')
     {
