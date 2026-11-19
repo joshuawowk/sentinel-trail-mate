@@ -161,6 +161,7 @@ enum class SettingId : std::uint16_t
     FwCheck,
     FwInstall,
     AdvDebug,
+    DarkMode,
     ChatResetMesh,
     ChatResetNodes,
     ChatClearMessages,
@@ -342,6 +343,7 @@ struct SettingsData
     char fw_latest_version[24] = "";
     char fw_update_status[96] = "";
     bool advanced_debug_logs = false;
+    bool dark_mode = false;
 };
 
 struct ItemWidget

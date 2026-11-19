@@ -153,6 +153,7 @@ constexpr SettingSpec kSpecs[] = {
     {SettingId::FwCheck, "fw_check", DynamicOptionKind::None},
     {SettingId::FwInstall, "fw_install", DynamicOptionKind::None},
     {SettingId::AdvDebug, "adv_debug", DynamicOptionKind::None},
+    {SettingId::DarkMode, "dark_mode", DynamicOptionKind::None},
     {SettingId::ChatResetMesh, "chat_reset_mesh", DynamicOptionKind::None},
     {SettingId::ChatResetNodes, "chat_reset_nodes", DynamicOptionKind::None},
     {SettingId::ChatClearMessages, "chat_clear_messages", DynamicOptionKind::None},
@@ -520,7 +521,8 @@ bool is_settings_store_owned_enum(SettingId id)
 bool is_settings_store_owned_toggle(SettingId id)
 {
     return id == SettingId::ChatAutoReplyEnabled ||
-           id == SettingId::VibrationEnabled || id == SettingId::AdvDebug;
+           id == SettingId::VibrationEnabled || id == SettingId::AdvDebug ||
+           id == SettingId::DarkMode;
 }
 
 bool should_show(SettingId id, const VisibilityContext& context)
