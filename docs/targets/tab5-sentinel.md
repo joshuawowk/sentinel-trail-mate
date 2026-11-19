@@ -143,7 +143,15 @@ Bootloader v0.1.5, 2026-11-18:
 - A finger tap on **Return to Sentinel** opens the dialog, and confirming starts the
   launcher (boot record `warm+armed/firmware` -> `warm+armed/launcher+clean`). The console's
   `launcher` command does the same.
-- `sappctl.py info`, `shot` and `drag` work against Trail Mate.
+- Reinstalling over a card that holds the previous install's `/trailmate/config.tms`
+  (fresh NVS) applies those settings and the app facade starts (needed the empty-string
+  fix in `apply_c6_records()`).
+- Menu tiles show full names ("Return to Sentinel", "Protocol Probe").
+- `sappctl.py info`, `shot`, `drag` and `launcher` work against Trail Mate.
+
+Known gap: the console's `tap` is read by LVGL but does not yet produce a click on the Tab5
+(a finger tap does, and an injected `drag` resumes from the saver). Use a finger, or
+`launcher`, until that is resolved.
 
 ## Reverse-engineering notes
 
