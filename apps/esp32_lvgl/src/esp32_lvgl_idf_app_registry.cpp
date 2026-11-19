@@ -324,8 +324,7 @@ void sentinel_enter(void*, lv_obj_t* parent)
     lv_obj_set_width(body, LV_PCT(100));
     lv_label_set_long_mode(body, LV_LABEL_LONG_WRAP);
     sentinel_set_label(body,
-                       "Close Trail Mate and go back to the Sentinel launcher? "
-                       "Messages and settings are already saved.",
+                       "Close Trail Mate and go back to the Sentinel launcher?",
                        kSentinelTextDim,
                        ui::page_profile::resolve_body_font());
     lv_obj_set_flex_grow(body, 1);

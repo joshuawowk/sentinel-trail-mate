@@ -6,9 +6,9 @@ them starts from a touch screen, and a reset returns to the launcher. This page 
 the Sentinel build of Trail Mate: what it changes, how to build and install it, and what
 does and does not work on the Tab5.
 
-| Main menu with the **Return to Sentinel** tile | Screen saver after the screen timeout |
-|---|---|
-| ![Main menu](tab5-sentinel-menu.png) | ![Screen saver](tab5-sentinel-saver.png) |
+| Main menu with the **Return to Sentinel** tile | The Return to Sentinel dialog | Screen saver after the screen timeout |
+|---|---|---|
+| ![Main menu](tab5-sentinel-menu.png) | ![Return to Sentinel](tab5-sentinel-dialog.png) | ![Screen saver](tab5-sentinel-saver.png) |
 
 Screenshots from the Tab5's frame buffer (`sappctl.py shot`), 2026-11-18.
 
@@ -153,11 +153,16 @@ Bootloader v0.1.5, 2026-11-18:
   (fresh NVS) applies those settings and the app facade starts (needed the empty-string
   fix in `apply_c6_records()`).
 - Menu tiles show full names ("Return to Sentinel", "Protocol Probe").
-- `sappctl.py info`, `shot`, `drag` and `launcher` work against Trail Mate.
+- `sappctl.py info`, `shot`, `tap`, `drag` and `launcher` work against Trail Mate. An
+  injected tap on the tile opens the dialog, Cancel closes it, and Return to Sentinel
+  starts the launcher (launcher v0.1.6).
 
-Known gap: the console's `tap` is read by LVGL but does not yet produce a click on the Tab5
-(a finger tap does, and an injected `drag` resumes from the saver). Use a finger, or
-`launcher`, until that is resolved.
+Not observed on hardware: Esc on a Tab5 Keyboard closing the dialog, battery charging beyond
+the log line (no charger change was measured), pages other than the main menu, LoRa and
+GNSS (no module fitted), and the `sentinel-tab5.yml` workflow (Actions do not run on this
+fork). Start-up takes about 19 s on a card that holds Sentinel's library, and logs
+"initial storage hydration did not reach a ready state" while the SD card is indexed;
+that was not investigated.
 
 ## Reverse-engineering notes
 
