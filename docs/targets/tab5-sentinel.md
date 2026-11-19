@@ -77,6 +77,14 @@ access point. Set a network from the Wi-Fi page, or from the console with
 LoRa (M5-Bus LoRa module), GNSS, maps from the SD card, chat over LoRa, Team over LoRa and
 the rest of the offline feature set do not use the C6 and are unchanged.
 
+The Sentinel profile sets the ESP32-P4's PSRAM (L2) cache line to 64 B
+(`CONFIG_CACHE_L2_CACHE_LINE_64B`), the value every Sentinel app uses. The standalone `tab5`
+target builds for a 128 B line, but esp-hosted aligns its SDIO DMA buffers to 64 B, so a 128 B
+line lets two buffers share one cache line and ESP-IDF v5.5's `sdmmc_host_check_buffer_alignment`
+rejects the transfer (`ESP_ERR_INVALID_ARG`, "Unrecoverable host sdio state"). The 64 B line
+keeps esp-hosted's buffers in PSRAM and needs no extra internal RAM. The standalone `tab5` build
+keeps the 128 B line; it talks to the C6 over HostLink, not esp-hosted.
+
 ### Storage
 
 - **NVS** is Trail Mate's own and starts empty after every new install. Updating in place
@@ -174,6 +182,22 @@ Bootloader v0.1.5, 2026-11-18:
 - `sappctl.py info`, `shot`, `tap`, `drag` and `launcher` work against Trail Mate. An
   injected tap on the tile opens the dialog, Cancel closes it, and Return to Sentinel
   starts the launcher (launcher v0.1.6).
+
+Wi-Fi, on the same Tab5 under Sentinel Bootloader v0.1.6, 2026-11-19 (with the 64 B L2
+cache line above):
+
+- The station connects to a WPA2 network in a few seconds and gets a DHCP address; it
+  reconnected on 3 of 3 boots (one fresh install and two `restart`s), with no
+  `ESP_ERR_INVALID_ARG` / "Unrecoverable host sdio state" on any. `wifi scan` lists
+  networks in range.
+- The Reticulum TCP gateway connects over the ESP32-P4's own lwIP stack (the new
+  `socket_tcp_transport`), reaching a public gateway.
+- `wifi off` then `wifi on` disconnects and re-associates (the station is stopped, not
+  de-initialised, so the esp-hosted link stays up).
+- With Wi-Fi up, internal RAM stays healthy (esp-hosted's buffers are in PSRAM): about
+  130 KB of internal heap free.
+- The C6 firmware (2.12.16) is never written, and the launcher's Wi-Fi works again after
+  **Return to Sentinel**.
 
 Not observed on hardware: Esc on a Tab5 Keyboard closing the dialog, battery charging beyond
 the log line (no charger change was measured), pages other than the main menu, LoRa and

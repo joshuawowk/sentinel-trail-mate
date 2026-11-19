@@ -33,7 +33,19 @@ CONFIG_ESP_HOSTED_PRIV_SDIO_PIN_D3_4BIT_BUS_SLOT_1=8
 CONFIG_ESP_HOSTED_SDIO_GPIO_RESET_SLAVE=15
 # Must match the slave build; a mismatch aborts at boot.
 CONFIG_ESP_HOSTED_SDIO_OPTIMIZATION_RX_STREAMING_MODE=y
-# esp-hosted preallocates ~90 KB at start; keep it out of internal RAM.
+# Program the ESP32-P4's PSRAM (L2) cache line to 64 B, as every Sentinel app does. The Tab5
+# target otherwise builds for a 128 B line (sdkconfig.defaults), and the app's own start-up
+# programs the hardware line from this config. esp-hosted aligns its SDIO DMA buffers to 64 B
+# (HOSTED_MEM_ALIGNMENT_64); with a 128 B line, two such buffers can share one cache line, and
+# IDF 5.5.4's sdmmc_host_check_buffer_alignment() correctly rejects them (ESP_ERR_INVALID_ARG
+# -> "Unrecoverable host sdio state", intermittently depending on where the pool lands). A 64 B
+# line makes esp-hosted's 64 B alignment sufficient, so its pool stays in PSRAM (no extra
+# internal RAM). Only this profile needs it: the standalone Tab5 build talks to the C6 over
+# HostLink, not esp-hosted, so it keeps the 128 B line.
+CONFIG_CACHE_L2_CACHE_LINE_64B=y
+
+# esp-hosted's ~90 KB of transport buffers stay in PSRAM (the 64 B L2 line above makes their
+# 64 B alignment pass the SDMMC DMA check), keeping scarce internal RAM free.
 CONFIG_ESP_HOSTED_MEMPOOL_PREFER_SPIRAM=y
 CONFIG_ESP_HOSTED_SDIO_TX_Q_SIZE=20
 CONFIG_ESP_HOSTED_SDIO_RX_Q_SIZE=20
@@ -57,10 +69,3 @@ CONFIG_LWIP_TCP_RECVMBOX_SIZE=64
 CONFIG_LWIP_TCPIP_RECVMBOX_SIZE=64
 CONFIG_LWIP_TCP_SACK_OUT=y
 
-# esp-hosted's SDIO transport to the C6 needs a 1 kHz tick: at the IDF/Trail Mate default of
-# 100 Hz the link comes up (control RPCs work) but is too jittery to associate ("bus level
-# jitters", esp-hosted's own boot warning). Sentinel Bootloader and every Sentinel app run at
-# 1000 Hz. Only the Sentinel profile raises it; the standalone tab5 build stays at 100 Hz.
-# Safe here: Trail Mate's bare tick delays are vTaskDelay(1) yields, and its timers, queue
-# timeouts and the LoRa backoff use pdMS_TO_TICKS or esp_timer (wall-clock), not raw ticks.
-CONFIG_FREERTOS_HZ=1000
