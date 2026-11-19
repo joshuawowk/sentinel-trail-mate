@@ -20,10 +20,11 @@ The build is the regular `tab5` ESP-IDF target with an extra profile, switched o
 | Area | Standalone `tab5` | Sentinel build |
 |---|---|---|
 | Partition table | `partitions.csv`: two 6 MiB app slots, 3.9 MiB `ffat` | `builds/esp_idf/targets/tab5/partitions_sentinel.csv`: one app row, 24 KiB `nvs`, 1 MiB `ffat`, 64 KiB `coredump`. Sentinel places every row in its pool |
-| Optimisation | `-O2` everywhere (about 5.0 MB image) | `-Os`, with LVGL and the display port kept at `-O2` (about 3.9 MB image) |
+| Optimisation | `-O2` everywhere (about 5.0 MB image) | `-Os`, with LVGL and the display port kept at `-O2` (about 4.3 MB image) |
 | Console | UART0, with USB-Serial-JTAG as secondary | USB-Serial-JTAG (USB-C) only, as every Sentinel app |
 | Leaving Trail Mate | Restart only | **Return to Sentinel** tile (house icon) on the main menu, and the console's `launcher` command |
-| ESP32-C6 | Trail Mate's HostLink companion protocol | Left alone: it runs Sentinel's shared esp-hosted firmware |
+| ESP32-C6 | Trail Mate's HostLink companion protocol | Sentinel's shared esp-hosted firmware: Trail Mate's HostLink companion stays off, Wi-Fi goes through esp-hosted |
+| Wi-Fi | Through the C6's HostLink companion | Through the C6's shared esp-hosted firmware (station; see below). No ESP-NOW Team |
 | Battery charging | Charger left disabled (`CHG_EN` low) | Charger enabled at start |
 | Updates | None on the Tab5 | Sentinel offers updates from this repository's releases (`SENTINEL_APP_INFO`) |
 
@@ -52,14 +53,29 @@ running; after three crashes in a row Sentinel starts its launcher.
 The Tab5's ESP32-C6 is present and working, but under Sentinel it runs the esp-hosted slave
 firmware (2.12.x) that the launcher and every other installed firmware use for Wi-Fi and
 Bluetooth. Trail Mate's own C6 companion firmware speaks a different SDIO protocol
-(HostLink), so the Sentinel build does not probe the C6 and never offers to replace its
-firmware. The C6 Companion page is hidden, and the boot log says
+(HostLink), so the Sentinel build compiles that companion out and never offers to replace the
+C6's firmware. The C6 Companion page is hidden, and the boot log says
 `C6 is shared with Sentinel (esp-hosted); Trail Mate's C6 companion stays off`.
 
-As a result, the features that Trail Mate runs through its C6 companion are not available in
-this build: Wi-Fi (station, access point, TCP proxy, map and time sync over Wi-Fi) and
-ESP-NOW Team links. LoRa (M5-Bus LoRa module), GNSS, maps from the SD card, chat, Team over
-LoRa and the rest of the offline feature set do not use the C6.
+### Wi-Fi
+
+The Sentinel build reaches Wi-Fi through the C6's shared esp-hosted firmware instead of
+Trail Mate's companion: a Sentinel-only component (`sentinel_wifi`) brings in Espressif's
+`esp_hosted` host and `esp_wifi_remote` (the same versions Sentinel Bootloader runs), so the
+ordinary `esp_wifi_*` API works on the ESP32-P4 and Trail Mate's native Wi-Fi runtime drives
+it, as on the ESP32-S3 boards. On the first connect the host resets the C6 (GPIO 15) and
+brings up the SDIO link, exactly as the launcher and the other Sentinel apps do; the C6's
+firmware is never written. While Trail Mate holds the radio the launcher's own Wi-Fi is
+offline, and it reconnects after **Return to Sentinel**.
+
+What works: the Wi-Fi station (saved networks, scan, connect), the Reticulum TCP gateway and
+time sync over Wi-Fi (which run on the ESP32-P4's own lwIP stack here, not the C6's TCP
+proxy). What does not: **ESP-NOW Team** links (no esp-hosted path for them) and the Wi-Fi
+access point. Set a network from the Wi-Fi page, or from the console with
+`wifi join <ssid> [password]`.
+
+LoRa (M5-Bus LoRa module), GNSS, maps from the SD card, chat over LoRa, Team over LoRa and
+the rest of the offline feature set do not use the C6 and are unchanged.
 
 ### Storage
 
@@ -129,6 +145,8 @@ tools/sappctl.py launcher          # Return to Sentinel
 | `shot` | Screenshot of the DSI frame buffer (RLE16, as `sentinelctl.py shot` decodes) |
 | `tap X Y [ms]` | Inject a touch at a logical point |
 | `drag X0 Y0 X1 Y1 [ms]` | Inject a stroke; `drag 640 600 640 200` resumes from the screen saver |
+| `wifi [on\|off\|scan]` | Wi-Fi state; switch it on or off; list networks in range |
+| `wifi join <ssid> [password]` | Save a network and join it (`joinhex` takes both hex-encoded) |
 | `help` | List the commands |
 
 With other ESP32 boards on USB, point `sappctl.py` at the Tab5 with `-p` or `SAPP_PORT`

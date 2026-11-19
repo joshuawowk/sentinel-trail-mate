@@ -10,6 +10,16 @@ stable firmware release. Hardware support and validation remain target-specific.
 
 ## [Unreleased]
 
+### Added
+
+- Wi-Fi on the Sentinel Tab5 build, through the ESP32-C6's shared esp-hosted
+  firmware (a Sentinel-only `sentinel_wifi` component with `esp_hosted` and
+  `esp_wifi_remote`). The native Wi-Fi runtime drives it as on the ESP32-S3
+  boards; Trail Mate's HostLink C6 companion stays compiled out and the C6's
+  firmware is never written. The station, the Reticulum TCP gateway and time
+  sync over Wi-Fi work (on the P4's own lwIP stack); ESP-NOW Team and the Wi-Fi
+  access point do not. The console gains `wifi [on|off|scan|join|joinhex]`.
+
 ## [1.2.5-sentinel.1] - 2026-11-19
 
 The first release of Sentinel Trail Mate: Trail Mate 1.2.4 for the M5Stack Tab5

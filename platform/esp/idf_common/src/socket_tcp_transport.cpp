@@ -181,22 +181,19 @@ class SocketTcpTransport final : public WifiTcpTransport
         {
             return false;
         }
-        int fd = -1;
-        uint32_t generation = 0;
+        // Held across send() so a closeTcp() from another task (the Wi-Fi runtime disabling the
+        // transport on the console or LVGL task, while Reticulum writes on the chat task) waits
+        // for the write to finish instead of closing the fd under it and risking fd reuse.
+        // send() blocks for at most SO_SNDTIMEO; a chunked loop keeps any single call short.
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (status_.state != WifiTcpState::Connected || fd_ < 0)
         {
-            std::lock_guard<std::mutex> lock(mutex_);
-            if (status_.state != WifiTcpState::Connected || fd_ < 0)
-            {
-                return false;
-            }
-            fd = fd_;
-            generation = generation_;
+            return false;
         }
-
         size_t offset = 0;
         while (offset < len)
         {
-            const ssize_t sent = send(fd, data + offset, len - offset, 0);
+            const ssize_t sent = send(fd_, data + offset, len - offset, 0);
             if (sent > 0)
             {
                 offset += static_cast<size_t>(sent);
@@ -207,23 +204,13 @@ class SocketTcpTransport final : public WifiTcpTransport
             {
                 continue;
             }
-            std::lock_guard<std::mutex> lock(mutex_);
-            if (generation == generation_)
-            {
-                close_locked();
-                const bool timed_out = send_errno == EAGAIN || send_errno == EWOULDBLOCK;
-                set_locked(WifiTcpState::Error,
-                           timed_out ? TM_C6_ERROR_TIMEOUT : TM_C6_ERROR_NOT_CONNECTED,
-                           timed_out ? "write_timeout" : "write_failed");
-            }
+            close_locked();
+            const bool timed_out = send_errno == EAGAIN || send_errno == EWOULDBLOCK;
+            set_locked(WifiTcpState::Error, timed_out ? TM_C6_ERROR_TIMEOUT : TM_C6_ERROR_NOT_CONNECTED,
+                       timed_out ? "write_timeout" : "write_failed");
             return false;
         }
-
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (generation == generation_)
-        {
-            status_.transmitted_bytes += static_cast<uint32_t>(len);
-        }
+        status_.transmitted_bytes += static_cast<uint32_t>(len);
         return true;
     }
 

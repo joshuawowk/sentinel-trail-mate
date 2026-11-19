@@ -5,4 +5,4 @@
 idf_component_register(SRCS "sentinel_wifi.c"
                        INCLUDE_DIRS "include"
                        REQUIRES esp_wifi esp_netif esp_event lwip
-                       PRIV_REQUIRES esp_hosted esp_wifi_remote esp_timer freertos log)
+                       PRIV_REQUIRES esp_hosted esp_wifi_remote freertos log m5stack_tab5)
