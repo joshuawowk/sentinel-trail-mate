@@ -183,15 +183,13 @@ Bootloader v0.1.5, 2026-11-18:
   injected tap on the tile opens the dialog, Cancel closes it, and Return to Sentinel
   starts the launcher (launcher v0.1.6).
 
-Wi-Fi, on the same Tab5 under Sentinel Bootloader v0.1.6, 2026-11-19 (with the 64 B L2
-cache line above):
+Wi-Fi, on the same Tab5 under Sentinel Bootloader v0.1.6, 2026-11-19, with the 64 B L2
+cache line above (`CONFIG_FREERTOS_HZ=100`):
 
-- The station connects to a WPA2 network in a few seconds and gets a DHCP address; it
-  reconnected on 3 of 3 boots (one fresh install and two `restart`s), with no
-  `ESP_ERR_INVALID_ARG` / "Unrecoverable host sdio state" on any. `wifi scan` lists
-  networks in range.
-- The Reticulum TCP gateway connects over the ESP32-P4's own lwIP stack (the new
-  `socket_tcp_transport`), reaching a public gateway.
+- The station connects to a WPA2 network in a few seconds and gets a DHCP address. Across
+  three boots (one fresh install and two `restart`s), each followed by a `wifi join` from
+  the console, it associated every time with no `ESP_ERR_INVALID_ARG` / "Unrecoverable host
+  sdio state".
 - `wifi off` then `wifi on` disconnects and re-associates (the station is stopped, not
   de-initialised, so the esp-hosted link stays up).
 - With Wi-Fi up, internal RAM stays healthy (esp-hosted's buffers are in PSRAM): about
@@ -199,7 +197,15 @@ cache line above):
 - The C6 firmware (2.12.16) is never written, and the launcher's Wi-Fi works again after
   **Return to Sentinel**.
 
-Not observed on hardware: Esc on a Tab5 Keyboard closing the dialog, battery charging beyond
+On an earlier build (128 B line, before the fix was isolated), the Reticulum TCP gateway
+connected over the ESP32-P4's own lwIP stack (the new `socket_tcp_transport`) to a public
+node, and `wifi scan` listed networks in range; those paths were not re-checked on the 64 B
+build, but their code is unchanged.
+
+Not observed on hardware: enabling Wi-Fi from the touch UI (only the console `wifi`
+commands were used), a saved network reconnecting on its own after a restart without a fresh
+`wifi join`, SNTP time sync over Wi-Fi, and the Wi-Fi page under load. These remain to
+confirm. Also not observed: Esc on a Tab5 Keyboard closing the dialog, battery charging beyond
 the log line (no charger change was measured), pages other than the main menu, LoRa and
 GNSS (no module fitted), and the `sentinel-tab5.yml` workflow (Actions do not run on this
 fork). Start-up takes about 19 s on a card that holds Sentinel's library, and logs

@@ -120,7 +120,9 @@ bool sentinel_wifi_link_up(void)
 
 bool sentinel_wifi_link_ready(void)
 {
-    return s_ready;
+    /* A TRANSPORT_FAILURE event after the link came up sets s_dead; report the link as down
+     * then, so the console's `wifi` status does not keep saying "link up" for a dead C6. */
+    return s_ready && !s_dead;
 }
 
 void sentinel_wifi_c6_version(char* out, size_t len)
