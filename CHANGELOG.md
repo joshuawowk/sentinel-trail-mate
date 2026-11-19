@@ -10,6 +10,8 @@ stable firmware release. Hardware support and validation remain target-specific.
 
 ## [Unreleased]
 
+## [1.2.5-sentinel.2] - 2026-11-19
+
 ### Added
 
 - Wi-Fi on the Sentinel Tab5 build, through the ESP32-C6's shared esp-hosted
