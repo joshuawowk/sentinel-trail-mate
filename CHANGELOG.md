@@ -10,6 +10,47 @@ stable firmware release. Hardware support and validation remain target-specific.
 
 ## [Unreleased]
 
+## [1.2.5-sentinel.1] - 2026-11-19
+
+The first release of Sentinel Trail Mate: Trail Mate 1.2.4 for the M5Stack Tab5
+under [Sentinel Bootloader](https://github.com/joshuawowk/sentinel-bootloader).
+Install `trail-mate-tab5-sentinel.bin` from the launcher; see
+[docs/targets/tab5-sentinel.md](docs/targets/tab5-sentinel.md).
+
+### Added
+
+- A Sentinel Bootloader build of the Tab5 target (`-DTRAIL_MATE_SENTINEL=ON`,
+  packaged by `tools/sentinel/package_tab5.py` as `trail-mate-tab5-sentinel.bin`):
+  one app row with its own NVS, a 1 MiB `ffat` and a core-dump row, `-Os` with
+  LVGL and the display port kept at `-O2`, and Sentinel's app information, so
+  the launcher offers updates from this repository's releases.
+- A **Return to Sentinel** tile with a house icon on the main menu. Its dialog
+  confirms before Trail Mate hands the Tab5 back to the launcher.
+- Sentinel's console protocol on USB-C (USB-Serial-JTAG): `info`, `launcher`,
+  `restart`, `shot`, `tap` and `drag`, for the `sappctl.py` tools.
+- The Sentinel build switches the Tab5's battery charger on at start.
+
+### Changed
+
+- Under Sentinel the ESP32-C6 stays with Sentinel's shared esp-hosted firmware.
+  Trail Mate's C6 companion (HostLink) is compiled out and never offers to
+  replace the C6 firmware, so Wi-Fi and ESP-NOW Team links are not available
+  in this build. LoRa, GNSS, SD-card maps and chat do not use the C6.
+- Tab5 menu tiles are wider, so names such as "Return to Sentinel" fit.
+
+### Fixed
+
+- The ESP-IDF Tab5 build compiles and links again.
+- The Tab5 screen saver resumes with a swipe up. The ESP-IDF targets asked for
+  a SPACE key, which the Tab5 does not have, so it seemed to freeze after the
+  first screen timeout.
+- Without an M5-Bus LoRa module the SX126x probe backs off from 1 s to 60 s
+  instead of retrying about 42 times a second and flooding the console.
+- ESP-IDF builds apply `/trailmate/config.tms` again when a C6 text setting is
+  empty. The settings store removes a key written as an empty string, the
+  read-back check took that as a failure, and the app facade stayed unbound on
+  every start after the first.
+
 ## [1.2.4] - 2026-11-12
 
 ### Fixed
