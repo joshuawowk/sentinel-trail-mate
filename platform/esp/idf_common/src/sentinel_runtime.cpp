@@ -231,9 +231,9 @@ struct InjectedTouch
     uint32_t pressed_reads = 0;
 };
 
-// A press must reach LVGL before its release. The console waits for the display lock while
-// LVGL renders (a full 1280x720 frame takes tens of ms), so a short tap could otherwise be
-// read only once, already released, and click nothing.
+// A press must reach LVGL before its release: the console waits for the display lock while
+// LVGL renders (a full 1280x720 frame takes tens of ms), so keep a short tap pressed for a
+// few reads rather than letting it arrive already released.
 constexpr uint32_t kMinPressedReads = 3;
 
 InjectedTouch s_inject;
@@ -275,12 +275,17 @@ void injecting_read_cb(lv_indev_t* indev, lv_indev_data_t* data)
     }
 }
 
-// Inverse of lv_display_rotate_point(): LVGL rotates raw pointer points itself.
+// Inverse of lv_display_rotate_point(): LVGL rotates raw pointer points itself, using the
+// panel's native (unrotated) size. lv_display_get_physical_*_resolution() and
+// lv_display_get_*_resolution() both report the rotated size, so swap them back for
+// 90/270 degrees (using them unswapped put every tap 560 px off on the Tab5).
 void logical_to_native(lv_display_t* disp, int32_t lx, int32_t ly, int32_t* nx, int32_t* ny)
 {
-    const int32_t hor = lv_display_get_physical_horizontal_resolution(disp);
-    const int32_t ver = lv_display_get_physical_vertical_resolution(disp);
-    switch (lv_display_get_rotation(disp))
+    const lv_display_rotation_t rotation = lv_display_get_rotation(disp);
+    const bool quarter = rotation == LV_DISPLAY_ROTATION_90 || rotation == LV_DISPLAY_ROTATION_270;
+    const int32_t hor = quarter ? lv_display_get_vertical_resolution(disp) : lv_display_get_horizontal_resolution(disp);
+    const int32_t ver = quarter ? lv_display_get_horizontal_resolution(disp) : lv_display_get_vertical_resolution(disp);
+    switch (rotation)
     {
     case LV_DISPLAY_ROTATION_90:
         *nx = ly;
@@ -336,6 +341,16 @@ void inject_stroke(const char* what, int32_t x0, int32_t y0, int32_t x1, int32_t
     }
     logical_to_native(disp, x0, y0, &s_inject.x0, &s_inject.y0);
     logical_to_native(disp, x1, y1, &s_inject.x1, &s_inject.y1);
+    // LVGL must turn the native point back into the one asked for.
+    lv_point_t check = {s_inject.x1, s_inject.y1};
+    lv_display_rotate_point(disp, &check);
+    if (check.x != x1 || check.y != y1)
+    {
+        bsp_display_unlock();
+        reply_err("point mapping mismatch: (%ld,%ld) reads back as (%ld,%ld)", static_cast<long>(x1),
+                  static_cast<long>(y1), static_cast<long>(check.x), static_cast<long>(check.y));
+        return;
+    }
     s_inject.start_us = esp_timer_get_time();
     s_inject.move_us = static_cast<int64_t>(move_ms) * 1000;
     s_inject.release_at_us = s_inject.start_us + static_cast<int64_t>(move_ms + hold_ms) * 1000;
