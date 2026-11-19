@@ -6,6 +6,12 @@ them starts from a touch screen, and a reset returns to the launcher. This page 
 the Sentinel build of Trail Mate: what it changes, how to build and install it, and what
 does and does not work on the Tab5.
 
+| Main menu with the **Return to Sentinel** tile | Screen saver after the screen timeout |
+|---|---|
+| ![Main menu](tab5-sentinel-menu.png) | ![Screen saver](tab5-sentinel-saver.png) |
+
+Screenshots from the Tab5's frame buffer (`sappctl.py shot`), 2026-11-18.
+
 ## What the Sentinel build changes
 
 The build is the regular `tab5` ESP-IDF target with an extra profile, switched on with
