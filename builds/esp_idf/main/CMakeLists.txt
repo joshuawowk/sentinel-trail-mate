@@ -48,7 +48,9 @@ if(TRAIL_MATE_SENTINEL)
         "${TRAILMATE_ROOT}/platform/esp/idf_common/src/sentinel_runtime.cpp"
         "${TRAILMATE_ROOT}/platform/esp/idf_common/src/socket_tcp_transport.cpp"
         "${TRAILMATE_ROOT}/modules/ui_shared/src/ui/assets/sentinel_home.c")
-    list(APPEND TRAILMATE_ESP_IDF_SENTINEL_REQUIRES sentinel_wifi)
+    # sentinel_wifi: Wi-Fi via the C6's shared esp-hosted firmware. a164_keyboard:
+    # the M5Stack A164 I2C keyboard as an LVGL KEYPAD indev (Tab5 Sentinel only).
+    list(APPEND TRAILMATE_ESP_IDF_SENTINEL_REQUIRES sentinel_wifi a164_keyboard)
 endif()
 
 if(TRAIL_MATE_IDF_TARGET MATCHES "_lr2021$")

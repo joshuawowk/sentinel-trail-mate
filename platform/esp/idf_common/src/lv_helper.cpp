@@ -4,6 +4,10 @@
 #include "bsp/trail_mate_t_display_p4_keyboard.h"
 #endif
 
+#if defined(TRAIL_MATE_SENTINEL)
+#include "a164_keyboard.h"
+#endif
+
 namespace
 {
 
@@ -43,6 +47,16 @@ lv_indev_t* lv_get_keyboard_indev()
     // The adapter remains registered while an optional keyboard is absent so
     // it can retry discovery. Editors must still offer the touch keyboard.
     if (!trail_mate_t_display_p4_keyboard_is_ready())
+    {
+        return nullptr;
+    }
+#endif
+#if defined(TRAIL_MATE_SENTINEL)
+    // The A164 keypad indev stays registered while the keyboard is undocked so
+    // its poll task can hot-detect a later dock. Report "no hardware keyboard"
+    // until it actually answers, so text fields keep offering the on-screen
+    // touch keyboard when nothing is attached.
+    if (!a164_kbd_present())
     {
         return nullptr;
     }
