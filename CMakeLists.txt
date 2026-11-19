@@ -43,8 +43,22 @@ set(EXTRA_COMPONENT_DIRS
     builds/esp_idf/main
     platform/esp/idf_components
 )
+if(TRAIL_MATE_SENTINEL)
+    # Wi-Fi through the C6's shared esp-hosted firmware (esp_hosted, esp_wifi_remote). Only
+    # this build sees these components, so the other builds never link esp_hosted.
+    list(APPEND EXTRA_COMPONENT_DIRS platform/esp/idf_components_sentinel)
+endif()
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+if(TRAIL_MATE_SENTINEL)
+    # Visible to builds/esp_idf/main during the component manager's early expansion, which sees
+    # build properties but not this cache variable.
+    idf_build_set_property(TRAIL_MATE_SENTINEL 1)
+    # Its own lock file: the Sentinel build resolves components the shared dependencies.lock
+    # of the other builds does not have.
+    idf_build_set_property(DEPENDENCIES_LOCK
+        "${CMAKE_SOURCE_DIR}/builds/esp_idf/targets/tab5/dependencies.sentinel.lock")
+endif()
 project(trail-mate)
 
 if(TRAIL_MATE_SENTINEL)

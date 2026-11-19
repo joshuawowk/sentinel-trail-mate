@@ -1,4 +1,9 @@
-#if defined(TRAIL_MATE_ESP_BOARD_T_DISPLAY_P4) || defined(TRAIL_MATE_ESP_BOARD_TAB5)
+// The P4 boards reach Wi-Fi through the C6: with Trail Mate's companion firmware (HostLink,
+// this file) or, under Sentinel Bootloader, through Sentinel's shared esp-hosted firmware.
+// There esp_wifi_remote provides the esp_wifi API on the P4 and the native runtime below
+// (wifi_runtime_impl.h) drives it, as on the ESP32-S3 targets.
+#if (defined(TRAIL_MATE_ESP_BOARD_T_DISPLAY_P4) || defined(TRAIL_MATE_ESP_BOARD_TAB5)) && \
+    !defined(TRAIL_MATE_SENTINEL)
 
 #include "platform/esp/common/wifi_profile_snapshot.h"
 #include "platform/ui/wifi_runtime.h"

@@ -1,0 +1,15 @@
+## Wi-Fi for the Sentinel Bootloader build of the Tab5 target (-DTRAIL_MATE_SENTINEL=ON).
+##
+## Under Sentinel the Tab5's ESP32-C6 runs the esp-hosted slave firmware (2.12.16 on current
+## units) that the launcher and every other installed firmware share. This host must track it:
+## the same esp_hosted / esp_wifi_remote pins as Sentinel Bootloader and the sentinel-apps.
+## Never flash or replace the C6 firmware from Trail Mate.
+dependencies:
+  idf: ">=5.4"
+  espressif/esp_hosted: "2.12.13"
+  espressif/esp_wifi_remote: "1.2.2"
+  # This build has its own lock file (builds/esp_idf/targets/tab5/dependencies.sentinel.lock),
+  # and adding esp_hosted re-solves it. Hold the two components with loose constraints at the
+  # versions the shared dependencies.lock pins for the other builds.
+  lvgl/lvgl: "9.5.0"
+  espressif/tinyusb: "0.19.0~3"

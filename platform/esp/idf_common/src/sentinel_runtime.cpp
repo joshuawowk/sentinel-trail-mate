@@ -20,7 +20,9 @@
 #include "hal/usb_serial_jtag_ll.h"
 #include "lvgl.h"
 #include "platform/esp/idf_common/screen_touch.h"
+#include "platform/ui/wifi_runtime.h"
 #include "sentinel_app.h"
+#include "sentinel_wifi.h"
 
 // Where Sentinel Bootloader looks for updates of this firmware: the newest release of this
 // repository that carries the asset, when its tag is newer than PROJECT_VER.
@@ -35,7 +37,7 @@ constexpr const char* kTag = "sentinel";
 constexpr const char* kAppName = "Trail Mate";
 constexpr uint32_t kConsolePollMs = 20;
 constexpr uint32_t kConsoleStackBytes = 6144;
-constexpr std::size_t kLineMax = 160;
+constexpr std::size_t kLineMax = 256; // "wifi joinhex" with a 32-byte name and a 63-byte password
 // One "@data" line carries 768 bytes: 1024 base64 characters.
 constexpr std::size_t kBlobChunk = 768;
 
@@ -417,6 +419,167 @@ void cmd_info(int, char**)
     reply_ok("info");
 }
 
+const char* wifi_state_name(::platform::ui::wifi::ConnectionState state)
+{
+    using ::platform::ui::wifi::ConnectionState;
+    switch (state)
+    {
+    case ConnectionState::Unsupported:
+        return "unsupported";
+    case ConnectionState::Disabled:
+        return "disabled";
+    case ConnectionState::Idle:
+        return "idle";
+    case ConnectionState::Scanning:
+        return "scanning";
+    case ConnectionState::Connecting:
+        return "connecting";
+    case ConnectionState::Connected:
+        return "connected";
+    case ConnectionState::Error:
+        return "error";
+    case ConnectionState::ResourceDeferred:
+        return "deferred";
+    }
+    return "?";
+}
+
+// Decodes hex text ("4d79...") into a NUL-terminated string of at most out_len - 1 bytes.
+bool decode_hex_text(const char* hex, char* out, std::size_t out_len)
+{
+    const std::size_t len = std::strlen(hex);
+    if (len % 2 != 0 || len / 2 >= out_len)
+    {
+        return false;
+    }
+    for (std::size_t i = 0; i < len / 2; ++i)
+    {
+        unsigned value = 0;
+        if (std::sscanf(hex + 2 * i, "%2x", &value) != 1)
+        {
+            return false;
+        }
+        out[i] = static_cast<char>(value);
+    }
+    out[len / 2] = '\0';
+    return std::strlen(out) == len / 2;
+}
+
+// wifi join <ssid> [password] / wifi joinhex <ssid-hex> [password-hex]: save the network as
+// Trail Mate's first Wi-Fi profile (its own NVS, as the Wi-Fi page does) and connect. The hex
+// form carries names with spaces, and lets a script pipe a password in without it appearing on
+// a command line. The password is never echoed or logged.
+void cmd_wifi_join(int argc, char** argv, bool hex)
+{
+    namespace wifi = ::platform::ui::wifi;
+    if (argc < 3 || argc > 4)
+    {
+        reply_err("usage: wifi join <ssid> [password] | wifi joinhex <ssid-hex> [password-hex]");
+        return;
+    }
+    static wifi::Config config;
+    config = wifi::Config{};
+    config.enabled = true;
+    const char* password = argc > 3 ? argv[3] : "";
+    bool ok = false;
+    if (hex)
+    {
+        ok = decode_hex_text(argv[2], config.ssid, sizeof(config.ssid)) &&
+             decode_hex_text(password, config.password, sizeof(config.password));
+    }
+    else if (std::strlen(argv[2]) < sizeof(config.ssid) && std::strlen(password) < sizeof(config.password))
+    {
+        std::strcpy(config.ssid, argv[2]);
+        std::strcpy(config.password, password);
+        ok = true;
+    }
+    if (!ok || config.ssid[0] == '\0')
+    {
+        config = wifi::Config{};
+        reply_err("bad network name or password");
+        return;
+    }
+    if (!bsp_display_lock(5000))
+    {
+        config = wifi::Config{};
+        reply_err("display busy");
+        return;
+    }
+    // Persist first (connect() with an override only caches it in RAM), so the network is
+    // saved like the Wi-Fi page saves it and `wifi on` reconnects after a restart.
+    (void)wifi::save_config(config);
+    const bool started = wifi::connect(&config);
+    bsp_display_unlock();
+    char ssid[sizeof(config.ssid)];
+    std::memcpy(ssid, config.ssid, sizeof(ssid));
+    // Scrub the password out of the scratch buffer (connect() saved it to NVS already).
+    volatile char* p = config.password;
+    for (std::size_t i = 0; i < sizeof(config.password); ++i)
+    {
+        p[i] = 0;
+    }
+    config = wifi::Config{};
+    started ? reply_ok("joining \"%s\"", ssid) : reply_err("could not start joining \"%s\"", ssid);
+}
+
+// wifi [on | off | scan | join ...]: Trail Mate's Wi-Fi through the C6's esp-hosted firmware.
+// Everything but the status runs under the display lock, as the Wi-Fi page's own calls do on
+// the LVGL task.
+void cmd_wifi(int argc, char** argv)
+{
+    namespace wifi = ::platform::ui::wifi;
+    const char* sub = argc > 1 ? argv[1] : "";
+    if (std::strcmp(sub, "join") == 0 || std::strcmp(sub, "joinhex") == 0)
+    {
+        cmd_wifi_join(argc, argv, std::strcmp(sub, "joinhex") == 0);
+        return;
+    }
+    if (std::strcmp(sub, "on") == 0 || std::strcmp(sub, "off") == 0)
+    {
+        const bool on = std::strcmp(sub, "on") == 0;
+        if (!bsp_display_lock(5000))
+        {
+            reply_err("display busy");
+            return;
+        }
+        const bool ok = wifi::set_user_enabled(on);
+        bsp_display_unlock();
+        ok ? reply_ok("wifi %s", sub) : reply_err("wifi %s refused", sub);
+        return;
+    }
+    if (std::strcmp(sub, "scan") == 0)
+    {
+        static wifi::ScanResult results[12];
+        std::size_t count = 0;
+        if (!bsp_display_lock(5000))
+        {
+            reply_err("display busy");
+            return;
+        }
+        const bool ok = wifi::scan(results, sizeof(results) / sizeof(results[0]), count);
+        bsp_display_unlock();
+        for (std::size_t i = 0; i < count; ++i)
+        {
+            reply("net \"%s\" rssi %d %s", results[i].ssid, results[i].rssi,
+                  results[i].requires_password ? "secured" : "open");
+        }
+        ok ? reply_ok("scan %u", static_cast<unsigned>(count)) : reply_err("scan failed (%u)", static_cast<unsigned>(count));
+        return;
+    }
+    if (sub[0] != '\0')
+    {
+        reply_err("usage: wifi [on | off | scan | join <ssid> [password] | joinhex <ssid-hex> [password-hex]]");
+        return;
+    }
+    const wifi::Status s = wifi::status();
+    char c6[24];
+    sentinel_wifi_c6_version(c6, sizeof(c6));
+    reply("link %s c6 %s", sentinel_wifi_link_ready() ? "up" : "down", c6[0] ? c6 : "-");
+    reply("state %s enabled %d connected %d credentials %d rssi %d ip %s", wifi_state_name(s.state), s.enabled ? 1 : 0,
+          s.connected ? 1 : 0, s.has_credentials ? 1 : 0, s.rssi, s.ip[0] ? s.ip : "-");
+    reply_ok("wifi \"%s\"", s.message);
+}
+
 void cmd_help(int, char**)
 {
     reply("info               app, version and memory");
@@ -425,6 +588,8 @@ void cmd_help(int, char**)
     reply("shot               screenshot of the panel (sappctl.py shot out.png)");
     reply("tap <x> <y> [ms]   inject a touch at a logical point");
     reply("drag <x0> <y0> <x1> <y1> [ms]   inject a stroke (a swipe up resumes the saver)");
+    reply("wifi [on|off|scan] Wi-Fi state; switch it; list networks in range");
+    reply("wifi join <ssid> [password]   save a network and join it (joinhex: both hex-encoded)");
     reply_ok("help");
 }
 
@@ -465,6 +630,10 @@ void handle_line(char* line)
     else if (std::strcmp(cmd, "tap") == 0)
     {
         cmd_tap(argc, argv);
+    }
+    else if (std::strcmp(cmd, "wifi") == 0)
+    {
+        cmd_wifi(argc, argv);
     }
     else if (std::strcmp(cmd, "drag") == 0)
     {
@@ -533,6 +702,8 @@ void return_to_sentinel()
 {
     ESP_LOGW(kTag, "returning to Sentinel");
     (void)bsp_display_backlight_off();
+    // Leave the network cleanly; the launcher resets the C6 when it starts anyway.
+    sentinel_wifi_stop_for_launch();
     // A blank otadata makes Sentinel's bootloader start its launcher.
     const esp_partition_t* otadata =
         esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_OTA, nullptr);
