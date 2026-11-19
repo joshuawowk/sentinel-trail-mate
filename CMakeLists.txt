@@ -21,6 +21,19 @@ endif()
 # sdkconfig.<target> artifacts.
 set(SDKCONFIG "${CMAKE_BINARY_DIR}/sdkconfig.${TRAIL_MATE_IDF_TARGET}")
 
+# Sentinel Bootloader (https://github.com/joshuawowk/sentinel-bootloader) profile:
+# layers a size-optimised configuration and a one-slot partition table over the
+# Tab5 defaults. Use a separate build directory, e.g. build.tab5_sentinel.
+option(TRAIL_MATE_SENTINEL "Build the Tab5 image for Sentinel Bootloader" OFF)
+if(TRAIL_MATE_SENTINEL)
+    if(NOT TRAIL_MATE_IDF_TARGET STREQUAL "tab5")
+        message(FATAL_ERROR "TRAIL_MATE_SENTINEL is only supported for TRAIL_MATE_IDF_TARGET=tab5")
+    endif()
+    list(APPEND SDKCONFIG_DEFAULTS "${TRAIL_MATE_IDF_TARGET_DIR}/sdkconfig.sentinel")
+    set(SDKCONFIG "${CMAKE_BINARY_DIR}/sdkconfig.${TRAIL_MATE_IDF_TARGET}_sentinel")
+    message(STATUS "trail-mate Sentinel profile enabled")
+endif()
+
 # `builds/esp_idf` owns ESP-IDF target defaults after root legacy removal.
 # Board choice stays explicit via `TRAIL_MATE_IDF_TARGET`, while board-specific
 # runtime logic continues to live under `platform/esp/boards/<board>`.
@@ -33,3 +46,15 @@ set(EXTRA_COMPONENT_DIRS
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(trail-mate)
+
+if(TRAIL_MATE_SENTINEL)
+    # The Sentinel profile builds for size (-Os); keep the renderer and the display port,
+    # which draw and rotate every frame of the 1280x720 panel, at -O2.
+    # (esp_lvgl_port registers an INTERFACE component; its code is in lvgl_port_lib.)
+    idf_component_get_property(trailmate_lvgl_lib lvgl__lvgl COMPONENT_LIB)
+    foreach(trailmate_fast_lib ${trailmate_lvgl_lib} lvgl_port_lib)
+        if(TARGET ${trailmate_fast_lib})
+            target_compile_options(${trailmate_fast_lib} PRIVATE -O2)
+        endif()
+    endforeach()
+endif()

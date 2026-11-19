@@ -50,6 +50,7 @@ static SemaphoreHandle_t sys_i2c_reinit_mutex = NULL;
 
 #if (BSP_CONFIG_NO_GRAPHIC_LIB == 0)
 static lv_indev_t* disp_indev = NULL;
+static esp_lcd_panel_handle_t disp_panel_handle = NULL;
 #endif // (BSP_CONFIG_NO_GRAPHIC_LIB == 0)
 
 // Global uSD card handler
@@ -1820,6 +1821,8 @@ static lv_display_t* bsp_display_lcd_init(const bsp_display_cfg_t* cfg)
         BSP_ERROR_CHECK_RETURN_NULL(bsp_display_new_with_handles(NULL, &lcd_panels));
     }
 
+    disp_panel_handle = lcd_panels.panel;
+
     /* Add LCD screen */
     ESP_LOGD(TAG, "Add LCD screen");
     const lvgl_port_display_cfg_t disp_cfg =
@@ -2119,6 +2122,11 @@ lv_display_t* bsp_display_start_with_config(const bsp_display_cfg_t* cfg)
 lv_indev_t* bsp_display_get_input_dev(void)
 {
     return disp_indev;
+}
+
+esp_lcd_panel_handle_t bsp_display_get_panel_handle(void)
+{
+    return disp_panel_handle;
 }
 
 void bsp_display_rotate(lv_display_t* disp, lv_disp_rotation_t rotation)

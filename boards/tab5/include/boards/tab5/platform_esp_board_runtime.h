@@ -6,10 +6,12 @@
 #include "boards/tab5/board_profile.h"
 #include "boards/tab5/rtc_runtime.h"
 #include "boards/tab5/tab5_board.h"
+#include "bsp/m5stack_tab5.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "platform/esp/boards/board_runtime.h"
+#include "platform/esp/idf_common/screen_touch.h"
 
 extern "C"
 {
@@ -94,6 +96,12 @@ inline void initializeDisplay()
     if (trail_mate_tab5_display_runtime_init())
     {
         ESP_LOGI(kTag, "Tab5 display runtime initialized");
+        // Touches on a sleeping screen or the saver belong to the screen-power layer.
+        if (trail_mate_tab5_display_lock(1000))
+        {
+            platform::esp::idf_common::screen_touch::install(bsp_display_get_input_dev());
+            trail_mate_tab5_display_unlock();
+        }
         // Use a permanent board lease instead of the direct BSP setter.
         // This keeps the Ext5V rail owned by the board's lease model so
         // that GPS/LoRa/heading runtimes can later acquire their own

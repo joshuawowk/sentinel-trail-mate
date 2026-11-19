@@ -38,6 +38,13 @@ elseif(TRAIL_MATE_IDF_TARGET MATCHES "^t_display_p4_(tft|amoled)(_lr2021)?$")
         ${TRAILMATE_ESP_IDF_T_DISPLAY_P4_BOARD_SOURCES})
 endif()
 
+if(TRAIL_MATE_SENTINEL)
+    # Sentinel Bootloader integration (Tab5 only): Return to Sentinel and the console.
+    list(APPEND TRAILMATE_ESP_IDF_PLATFORM_SOURCES
+        "${TRAILMATE_ROOT}/platform/esp/idf_common/src/sentinel_runtime.cpp"
+        "${TRAILMATE_ROOT}/modules/ui_shared/src/ui/assets/sentinel_home.c")
+endif()
+
 if(TRAIL_MATE_IDF_TARGET MATCHES "_lr2021$")
     list(APPEND TRAILMATE_ESP_IDF_PLATFORM_SOURCES
         "${TRAILMATE_ROOT}/platform/esp/idf_common/src/lr2021_radio.cpp"
@@ -75,6 +82,7 @@ idf_component_register(
         esp_codec_dev
         esp_lcd
         esp_lvgl_port
+        esp_mm
         esp_serial_slave_link
         esp_tinyusb
         esp_timer
@@ -111,6 +119,13 @@ endif()
 
 if(TRAIL_MATE_IDF_TARGET MATCHES "_lr2021$")
     target_compile_definitions(${COMPONENT_LIB} PRIVATE TRAIL_MATE_IDF_RADIO_LR2021=1)
+endif()
+
+if(TRAIL_MATE_SENTINEL)
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE TRAIL_MATE_SENTINEL=1)
+    target_include_directories(${COMPONENT_LIB} PRIVATE "${TRAILMATE_ROOT}/third_party/sentinel_app/include")
+    # Nothing refers to sentinel_app_info (Sentinel reads it from the image): keep it.
+    target_link_options(${COMPONENT_LIB} INTERFACE "-Wl,-u,sentinel_app_info")
 endif()
 
 if(TRAIL_MATE_IDF_TARGET STREQUAL "tdeck")

@@ -12,6 +12,9 @@
 #include "platform/esp/idf_common/bsp_runtime.h"
 #include "platform/esp/idf_common/debug/sd_coredump_export.h"
 #include "platform/esp/idf_common/reticulum_call_runtime_support.h"
+#if defined(TRAIL_MATE_SENTINEL)
+#include "platform/esp/idf_common/sentinel_runtime.h"
+#endif
 #include "platform/esp/idf_common/startup_support.h"
 #include "platform/esp/idf_common/usb_console_runtime.h"
 #include "platform/esp/idf_common/wireless_companion/c6_companion.h"
@@ -166,8 +169,16 @@ void runEsp32LvglStartupRuntime(const Esp32LvglRuntimeConfig& config)
     platform::esp::idf_common::startup_support::initializeClockProviders();
     platform::esp::idf_common::startup_support::logStartupBanner(config.log_tag);
     (void)platform::esp::idf_common::bsp_runtime::ensure_nvs_ready();
+#if defined(TRAIL_MATE_SENTINEL)
+    // Before any board bring-up, so "launcher" works even if the board does not come up.
+    platform::esp::idf_common::sentinel::start_console();
+#endif
     platform::esp::boards::initializeBoard(waking_from_sleep);
     platform::esp::boards::initializeDisplay();
+#if defined(TRAIL_MATE_SENTINEL)
+    // The Tab5's IO expanders are reset and programmed by the display bring-up.
+    platform::esp::idf_common::sentinel::on_board_initialized();
+#endif
     showBootUi(config, waking_from_sleep, "Starting services...");
     if (platform::esp::boards::syncSystemTimeFromBoardRtc())
     {

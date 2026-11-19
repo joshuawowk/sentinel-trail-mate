@@ -68,9 +68,21 @@ constexpr uint32_t kRequestedFeatures = TM_C6_FEATURE_ESPNOW_TEAM |
 constexpr uint32_t kDefaultConfigSequence = 1;
 constexpr const char* kSettingsNamespace = "c6_companion";
 constexpr uint32_t kNetworkTimeMinValidEpochSeconds = 1577836800; // 2020-01-01 UTC
+#if defined(TRAIL_MATE_SENTINEL)
+// The Tab5's ESP32-C6 is there, but under Sentinel Bootloader it runs the shared
+// esp-hosted slave firmware that the launcher and every other installed firmware use,
+// not Trail Mate's companion firmware. Never send it HostLink frames, and never offer
+// to replace its firmware.
+constexpr const char* kNoCompanionDetail = "c6_shared_with_sentinel_esp_hosted";
+#else
+constexpr const char* kNoCompanionDetail = "target_has_no_c6_companion";
+#endif
+
 bool board_has_c6_companion()
 {
-#if defined(TRAIL_MATE_ESP_BOARD_TAB5) || defined(TRAIL_MATE_ESP_BOARD_T_DISPLAY_P4)
+#if defined(TRAIL_MATE_SENTINEL)
+    return false;
+#elif defined(TRAIL_MATE_ESP_BOARD_TAB5) || defined(TRAIL_MATE_ESP_BOARD_T_DISPLAY_P4)
     return true;
 #else
     return false;
@@ -984,7 +996,11 @@ class C6CompanionRuntime final : public WirelessCompanion, public WifiTcpTranspo
 
         if (!status_.board_capable)
         {
-            set_detail(status_, CompanionState::Unsupported, "target_has_no_c6_companion");
+            set_detail(status_, CompanionState::Unsupported, kNoCompanionDetail);
+#if defined(ESP_PLATFORM) && defined(TRAIL_MATE_SENTINEL)
+            ESP_LOGI(kTag,
+                     "C6 is shared with Sentinel (esp-hosted); Trail Mate's C6 companion stays off");
+#endif
             return false;
         }
 
@@ -1050,7 +1066,7 @@ class C6CompanionRuntime final : public WirelessCompanion, public WifiTcpTranspo
 
         if (!status_.board_capable)
         {
-            set_detail(status_, CompanionState::Unsupported, "target_has_no_c6_companion");
+            set_detail(status_, CompanionState::Unsupported, kNoCompanionDetail);
             return false;
         }
 

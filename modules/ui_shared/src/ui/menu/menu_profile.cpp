@@ -105,7 +105,9 @@ MenuLayoutProfile make_tab5_profile()
     profile.variant = LayoutVariant::LargeTouchGrid;
     profile.input_mode = InputMode::TouchPrimary;
     profile.badge_anchor_mode = BadgeAnchorMode::IconTopRight;
-    profile.card_width = 112;
+    // Four 160 px columns still use only half of the 1280 px panel, and fit names such as
+    // "Return to Sentinel" and "Protocol Probe" without an ellipsis.
+    profile.card_width = 160;
     profile.card_height = 120;
     profile.icon_scale = 256;
     profile.card_radius = 0;

@@ -1,0 +1,15 @@
+# Sentinel Bootloader profile for the Tab5, layered over sdkconfig.defaults when the
+# build is configured with -DTRAIL_MATE_SENTINEL=ON (see docs/targets/tab5-sentinel.md).
+#
+# Sentinel installs the app into the largest free extent of a shared flash pool, so the
+# image is built for size; the root CMakeLists keeps LVGL and the display port at -O2.
+# CONFIG_COMPILER_OPTIMIZATION_PERF is not set
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y
+# One app slot, a private NVS, the `ffat` resource-pack store and a core dump row. Under
+# Sentinel only the labels, types and NVS size matter: the launcher places every row.
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="builds/esp_idf/targets/tab5/partitions_sentinel.csv"
+# USB-C (USB-Serial-JTAG) is the only console, as in every Sentinel app: logs, and the
+# Sentinel console that sentinelctl.py / sappctl.py talk to (launcher, shot, tap).
+# CONFIG_ESP_CONSOLE_UART_DEFAULT is not set
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y

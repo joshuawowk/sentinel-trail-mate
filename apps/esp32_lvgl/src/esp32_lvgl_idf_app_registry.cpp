@@ -19,11 +19,21 @@
 #include "ui/localization.h"
 #include "ui/ui_theme.h"
 
+#if defined(TRAIL_MATE_SENTINEL)
+#include "platform/esp/idf_common/sentinel_runtime.h"
+#include "ui/app_runtime.h"
+#include "ui/assets/fonts/font_utils.h"
+#include "ui/page/page_profile.h"
+#endif
+
 #include <cstdio>
 
 namespace ui::assets
 {
 extern "C" const lv_image_dsc_t Setting;
+#if defined(TRAIL_MATE_SENTINEL)
+extern "C" const lv_image_dsc_t sentinel_home;
+#endif
 }
 
 namespace
@@ -155,10 +165,201 @@ ui::CallbackAppScreen s_companion_app("c6_companion",
                                       companion_exit,
                                       &s_companion_page_state);
 
+#if defined(TRAIL_MATE_SENTINEL)
+// "Return to Sentinel": a house tile at the end of the main menu that asks first, then
+// hands the Tab5 back to the Sentinel Bootloader launcher. Esc or Cancel closes the dialog.
+constexpr uint32_t kSentinelPanelBg = 0xFFF6E2;
+constexpr uint32_t kSentinelAccent = 0xF0701E;
+constexpr uint32_t kSentinelAccentDark = 0xC4550F;
+constexpr uint32_t kSentinelLine = 0xE7C98F;
+constexpr uint32_t kSentinelText = 0x2B2E5E;
+constexpr uint32_t kSentinelTextDim = 0x5A5D86;
+
+lv_obj_t* s_sentinel_modal = nullptr;
+lv_group_t* s_sentinel_group = nullptr;
+lv_group_t* s_sentinel_prev_group = nullptr;
+
+void sentinel_close_modal()
+{
+    if (s_sentinel_modal != nullptr)
+    {
+        lv_obj_del(s_sentinel_modal);
+        s_sentinel_modal = nullptr;
+    }
+    set_default_group(s_sentinel_prev_group != nullptr ? s_sentinel_prev_group : menu_g);
+    s_sentinel_prev_group = nullptr;
+    ui_set_overlay_active(false);
+}
+
+void sentinel_confirm_cb(lv_event_t* e)
+{
+    (void)e;
+    APP_REG_LOG("return to Sentinel confirmed\n");
+    platform::esp::idf_common::sentinel::return_to_sentinel();
+}
+
+void sentinel_cancel_cb(lv_event_t* e)
+{
+    (void)e;
+    sentinel_close_modal();
+}
+
+void sentinel_key_cb(lv_event_t* e)
+{
+    if (lv_event_get_key(e) == LV_KEY_ESC)
+    {
+        sentinel_close_modal();
+    }
+}
+
+void sentinel_set_label(lv_obj_t* label, const char* text, uint32_t color, const lv_font_t* font)
+{
+    const char* localized = ::ui::i18n::tr(text);
+    lv_label_set_text(label, localized);
+    lv_obj_set_style_text_color(label, lv_color_hex(color), LV_PART_MAIN);
+    ::ui::fonts::apply_localized_font(label, localized, font);
+}
+
+lv_obj_t* sentinel_button(lv_obj_t* parent, const lv_image_dsc_t* image, const char* text, lv_event_cb_t cb,
+                          bool primary)
+{
+    lv_obj_t* btn = lv_btn_create(parent);
+    lv_obj_set_height(btn, LV_MAX(ui::page_profile::resolve_control_button_height(), 52));
+    lv_obj_set_flex_grow(btn, 1);
+    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(btn, lv_color_hex(primary ? kSentinelAccent : kSentinelPanelBg), LV_PART_MAIN);
+    lv_obj_set_style_border_width(btn, 2, LV_PART_MAIN);
+    lv_obj_set_style_border_color(btn, lv_color_hex(primary ? kSentinelAccentDark : kSentinelLine), LV_PART_MAIN);
+    lv_obj_set_style_radius(btn, 10, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_outline_width(btn, 3, LV_STATE_FOCUS_KEY);
+    lv_obj_set_style_outline_color(btn, lv_color_hex(kSentinelText), LV_STATE_FOCUS_KEY);
+    lv_obj_set_style_bg_color(btn, lv_color_hex(primary ? kSentinelAccentDark : kSentinelLine), LV_STATE_PRESSED);
+    lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_event_cb(btn, sentinel_key_cb, LV_EVENT_KEY, nullptr);
+
+    lv_obj_t* row = lv_obj_create(btn);
+    lv_obj_remove_style_all(row);
+    lv_obj_set_size(row, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(row, 10, LV_PART_MAIN);
+    lv_obj_clear_flag(row, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_center(row);
+    const uint32_t color = primary ? 0xFFFFFF : kSentinelText;
+    if (image != nullptr)
+    {
+        // The tile's house icon, scaled to the button (64 px source, 40 px shown).
+        lv_obj_t* icon = lv_image_create(row);
+        lv_image_set_src(icon, image);
+        lv_image_set_scale(icon, 160);
+        lv_obj_set_size(icon, 40, 40);
+        lv_image_set_inner_align(icon, LV_IMAGE_ALIGN_CENTER);
+    }
+    lv_obj_t* label = lv_label_create(row);
+    sentinel_set_label(label, text, color, ui::page_profile::resolve_body_font());
+
+    if (s_sentinel_group != nullptr)
+    {
+        lv_group_add_obj(s_sentinel_group, btn);
+    }
+    return btn;
+}
+
+void sentinel_enter(void*, lv_obj_t* parent)
+{
+    if (parent == nullptr || s_sentinel_modal != nullptr)
+    {
+        return;
+    }
+
+    s_sentinel_prev_group = lv_group_get_default();
+    if (s_sentinel_group == nullptr)
+    {
+        s_sentinel_group = lv_group_create();
+    }
+    lv_group_remove_all_objs(s_sentinel_group);
+    set_default_group(s_sentinel_group);
+    ui_set_overlay_active(true);
+
+    s_sentinel_modal = lv_obj_create(parent);
+    lv_obj_set_size(s_sentinel_modal, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_pos(s_sentinel_modal, 0, 0);
+    lv_obj_set_style_bg_color(s_sentinel_modal, lv_color_hex(kSentinelText), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(s_sentinel_modal, LV_OPA_50, LV_PART_MAIN);
+    lv_obj_set_style_border_width(s_sentinel_modal, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(s_sentinel_modal, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(s_sentinel_modal, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(s_sentinel_modal, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(s_sentinel_modal, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_move_foreground(s_sentinel_modal);
+
+    const auto size = ui::page_profile::resolve_modal_size(560, 300, parent);
+    lv_obj_t* dialog = lv_obj_create(s_sentinel_modal);
+    lv_obj_set_size(dialog, size.width, size.height);
+    lv_obj_center(dialog);
+    lv_obj_set_style_bg_color(dialog, lv_color_hex(kSentinelPanelBg), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(dialog, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_width(dialog, 3, LV_PART_MAIN);
+    lv_obj_set_style_border_color(dialog, lv_color_hex(kSentinelAccent), LV_PART_MAIN);
+    lv_obj_set_style_radius(dialog, 14, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(dialog, 22, LV_PART_MAIN);
+    lv_obj_set_style_pad_row(dialog, 14, LV_PART_MAIN);
+    lv_obj_set_flex_flow(dialog, LV_FLEX_FLOW_COLUMN);
+    lv_obj_clear_flag(dialog, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(dialog, LV_OBJ_FLAG_CLICKABLE);
+
+    lv_obj_t* head = lv_obj_create(dialog);
+    lv_obj_remove_style_all(head);
+    lv_obj_set_size(head, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(head, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(head, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(head, 16, LV_PART_MAIN);
+    lv_obj_t* house = lv_image_create(head);
+    lv_image_set_src(house, &ui::assets::sentinel_home);
+    lv_obj_t* title = lv_label_create(head);
+    sentinel_set_label(title, "Return to Sentinel", kSentinelText, ui::page_profile::resolve_title_font());
+
+    lv_obj_t* body = lv_label_create(dialog);
+    lv_obj_set_width(body, LV_PCT(100));
+    lv_label_set_long_mode(body, LV_LABEL_LONG_WRAP);
+    sentinel_set_label(body,
+                       "Close Trail Mate and go back to the Sentinel launcher? "
+                       "Messages and settings are already saved.",
+                       kSentinelTextDim,
+                       ui::page_profile::resolve_body_font());
+    lv_obj_set_flex_grow(body, 1);
+
+    lv_obj_t* row = lv_obj_create(dialog);
+    lv_obj_remove_style_all(row);
+    lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_pad_column(row, 16, LV_PART_MAIN);
+
+    lv_obj_t* cancel_btn = sentinel_button(row, nullptr, "Cancel", sentinel_cancel_cb, false);
+    (void)sentinel_button(row, &ui::assets::sentinel_home, "Return to Sentinel", sentinel_confirm_cb, true);
+    lv_group_focus_obj(cancel_btn);
+}
+
+void sentinel_exit(void*, lv_obj_t* parent)
+{
+    (void)parent;
+}
+
+ui::CallbackAppScreen s_sentinel_app("sentinel_return",
+                                     "Return to Sentinel",
+                                     &ui::assets::sentinel_home,
+                                     sentinel_enter,
+                                     sentinel_exit,
+                                     nullptr,
+                                     ui::AppLaunchMode::MenuOverlay);
+#endif
+
 struct IdfCatalogState
 {
     ui::AppCatalog base{};
     AppScreen* companion = nullptr;
+    AppScreen* sentinel = nullptr;
 };
 
 std::size_t idf_catalog_count(void* user_data)
@@ -168,7 +369,8 @@ std::size_t idf_catalog_count(void* user_data)
     {
         return 0;
     }
-    return ui::catalogCount(state->base) + (state->companion != nullptr ? 1U : 0U);
+    return ui::catalogCount(state->base) + (state->companion != nullptr ? 1U : 0U) +
+           (state->sentinel != nullptr ? 1U : 0U);
 }
 
 AppScreen* idf_catalog_at(void* user_data, std::size_t index)
@@ -184,9 +386,18 @@ AppScreen* idf_catalog_at(void* user_data, std::size_t index)
     {
         return ui::catalogAt(state->base, index);
     }
-    if (index == base_count)
+    std::size_t next = base_count;
+    if (state->companion != nullptr)
     {
-        return state->companion;
+        if (index == next)
+        {
+            return state->companion;
+        }
+        ++next;
+    }
+    if (state->sentinel != nullptr && index == next)
+    {
+        return state->sentinel;
     }
     return nullptr;
 }
@@ -238,6 +449,9 @@ ui::AppCatalog buildCatalog()
     s_catalog_state.base = ui::app_catalog_builder::build(buildFeatureFlags());
     s_catalog_state.companion =
         platform::ui::wireless_companion::is_supported() ? &s_companion_app : nullptr;
+#if defined(TRAIL_MATE_SENTINEL)
+    s_catalog_state.sentinel = &s_sentinel_app;
+#endif
     return s_catalog;
 }
 

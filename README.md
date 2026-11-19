@@ -336,6 +336,7 @@ The table below records the **real build targets currently present in the reposi
 | **LILYGO T-Deck Pro** | `tdeck_pro_a7682e` / `tdeck_pro_pcm512a` | PlatformIO / Arduino | Separate environments exist, but this line is still in active bring-up / adaptation work |
 | **LILYGO T-Watch S3** | `lilygo_twatch_s3` | PlatformIO / Arduino | Experimental target used more for system and UI validation than for full feature coverage |
 | **M5Stack Tab5** | `TRAIL_MATE_IDF_TARGET=tab5` | ESP-IDF | Main large-screen IDF bring-up target; the shared shell runs and hardware-specific work is still being filled in |
+| **M5Stack Tab5 under [Sentinel Bootloader](https://github.com/joshuawowk/sentinel-bootloader)** | `TRAIL_MATE_IDF_TARGET=tab5` + `TRAIL_MATE_SENTINEL=ON` | ESP-IDF | Tab5 image that installs and runs as a firmware under the Sentinel launcher, with a **Return to Sentinel** tile; the shared ESP32-C6 is left to Sentinel, so Wi-Fi and ESP-NOW are off. See [tab5-sentinel.md](docs/targets/tab5-sentinel.md) |
 | **LILYGO T-Display P4 TFT** | `TRAIL_MATE_IDF_TARGET=t_display_p4_tft` | ESP-IDF | TFT / HI8561 port with shared UI and dashboard; display, touch and sliders verified on the test unit. External keyboard input remains under hardware diagnosis. |
 | **LILYGO T-Display P4 AMOLED** | `TRAIL_MATE_IDF_TARGET=t_display_p4_amoled` | ESP-IDF | Explicit AMOLED / RM69A10 + GT9895 bring-up target for the shared IDF shell |
 
