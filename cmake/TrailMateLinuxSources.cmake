@@ -591,6 +591,7 @@ set(TRAIL_MATE_LINUX_UI_SHELL_SOURCES
     "${TRAIL_MATE_UI_SHARED_SRC_ROOT}/ui/menu/dashboard/dashboard_recent_widget.cpp"
     "${TRAIL_MATE_UI_SHARED_SRC_ROOT}/ui/menu/dashboard/dashboard_state.cpp"
     "${TRAIL_MATE_UI_SHARED_SRC_ROOT}/ui/menu/menu_dashboard.cpp"
+    "${TRAIL_MATE_UI_SHARED_SRC_ROOT}/ui/dark_mode.cpp"
     "${TRAIL_MATE_UI_SHARED_SRC_ROOT}/ui/menu/menu_layout.cpp"
     "${TRAIL_MATE_UI_SHARED_SRC_ROOT}/ui/menu/menu_profile.cpp"
     "${TRAIL_MATE_UI_SHARED_SRC_ROOT}/ui/menu/menu_runtime.cpp"
