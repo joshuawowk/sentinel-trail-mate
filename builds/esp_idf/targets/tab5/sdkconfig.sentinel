@@ -96,3 +96,13 @@ CONFIG_LV_FONT_DEFAULT_MONTSERRAT_20=y
 # actually applied. Cost is a small per-colour callback at draw time; negligible here.
 CONFIG_LV_USE_COLOR_FILTER=y
 
+
+# --- UI: route LVGL allocations to PSRAM (GitHub issue #17) ---
+# LVGL's builtin allocator uses a fixed 64 KB pool (CONFIG_LV_USE_BUILTIN_MALLOC +
+# LV_MEM_SIZE). On the Tab5 the on-screen keyboard's symbol/candidate picker exhausts that
+# pool, and because LV_USE_ASSERT_MALLOC is on, the failed allocation spins forever in
+# LV_ASSERT_MALLOC -> the LVGL task hangs -> the 20 s task watchdog reboots the device (#17).
+# platform/esp/idf_common/src/lvgl_memory.cpp already routes lv_malloc to PSRAM (27 MB on the
+# Tab5) but only compiles in under LV_STDLIB_CUSTOM, so select the custom allocator here.
+# Object/style allocations are not DMA'd; draw buffers keep their SDK-owned DMA allocation.
+CONFIG_LV_USE_CUSTOM_MALLOC=y
