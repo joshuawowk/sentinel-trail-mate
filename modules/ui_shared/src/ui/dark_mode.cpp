@@ -47,6 +47,27 @@ void ensure_filter()
     }
 }
 
+// Attach (or switch off) the inheritable filter on one root object. The descriptor is left in
+// place when turning off -- a zero opacity makes LVGL skip it everywhere beneath the object --
+// so toggling live is cheap and does not disturb per-object styles.
+void apply_to(lv_obj_t* obj, bool on)
+{
+    if (obj == nullptr)
+    {
+        return;
+    }
+    if (on)
+    {
+        lv_obj_set_style_color_filter_dsc(obj, &s_filter, LV_PART_MAIN);
+        lv_obj_set_style_color_filter_opa(obj, LV_OPA_COVER, LV_PART_MAIN);
+    }
+    else
+    {
+        lv_obj_set_style_color_filter_opa(obj, LV_OPA_TRANSP, LV_PART_MAIN);
+    }
+    lv_obj_invalidate(obj);
+}
+
 } // namespace
 
 bool default_enabled()
@@ -68,24 +89,15 @@ void apply(bool on)
     s_enabled = on;
     ensure_filter();
 
-    lv_obj_t* screen = lv_screen_active();
-    if (screen == nullptr)
-    {
-        return;
-    }
-
-    if (on)
-    {
-        lv_obj_set_style_color_filter_dsc(screen, &s_filter, LV_PART_MAIN);
-        lv_obj_set_style_color_filter_opa(screen, LV_OPA_COVER, LV_PART_MAIN);
-    }
-    else
-    {
-        // Leave the (inheritable) descriptor in place but switch the filter off; a zero
-        // opacity makes LVGL skip it everywhere.
-        lv_obj_set_style_color_filter_opa(screen, LV_OPA_TRANSP, LV_PART_MAIN);
-    }
-    lv_obj_invalidate(screen);
+    // Trail Mate builds its whole UI on the single active screen, so a filter there is
+    // inherited by the menu, pages and their content. Transient chrome, though, is parented
+    // elsewhere: the boot splash, busy/pairing overlays and the on-screen keyboard editor live
+    // on lv_layer_top(), and LVGL's own popups on lv_layer_sys(). Those layers are separate
+    // roots (their parent is the display, not the screen) and do not inherit a filter set on
+    // the screen, so apply it to all three to cover the whole UI.
+    apply_to(lv_screen_active(), on);
+    apply_to(lv_layer_top(), on);
+    apply_to(lv_layer_sys(), on);
 }
 
 } // namespace ui::dark_mode
