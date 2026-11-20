@@ -76,6 +76,7 @@ struct PickerState
     std::size_t page_capacity = 1;
     int columns = 1;
     const lv_font_t* candidate_font = nullptr;
+    lv_coord_t footer_button_w = kFooterButtonWidthPx;
 };
 
 PickerState s_picker;
@@ -497,7 +498,7 @@ void set_footer_status_layout(bool use_full_width)
     const lv_coord_t footer_width = lv_obj_get_width(footer);
     const lv_coord_t inset = use_full_width
                                  ? kPickerOuterPaddingPx
-                                 : kPickerOuterPaddingPx + kFooterButtonWidthPx + kGridGapPx;
+                                 : kPickerOuterPaddingPx + s_picker.footer_button_w + kGridGapPx;
     lv_obj_set_pos(s_picker.page_label, inset, 0);
     lv_obj_set_size(s_picker.page_label,
                     std::max<lv_coord_t>(1, footer_width - static_cast<lv_coord_t>(inset * 2)),
@@ -1016,10 +1017,23 @@ void open_text_candidate_picker(lv_obj_t* textarea,
     {
         screen_h = 1;
     }
-    const lv_coord_t header_h = std::min(kHeaderHeightPx, screen_h);
-    const lv_coord_t footer_h = std::min(kFooterHeightPx,
+    // Scale the header/footer bands and their action buttons up on large (Tab5-class)
+    // screens; the compact px defaults are tiny there (Prev/Next/Close were hard to hit).
+    const bool big_picker = screen_h >= 600;
+    const lv_coord_t header_band = big_picker ? static_cast<lv_coord_t>(56) : kHeaderHeightPx;
+    const lv_coord_t footer_band = big_picker ? static_cast<lv_coord_t>(56) : kFooterHeightPx;
+    const lv_coord_t action_btn_w =
+        big_picker ? static_cast<lv_coord_t>(132) : kHeaderActionButtonWidthPx;
+    const lv_coord_t action_btn_h =
+        big_picker ? static_cast<lv_coord_t>(46) : kHeaderCloseButtonHeightPx;
+    const lv_coord_t foot_btn_w = big_picker ? static_cast<lv_coord_t>(150) : kFooterButtonWidthPx;
+    const lv_coord_t foot_btn_h = big_picker ? static_cast<lv_coord_t>(46) : kFooterButtonHeightPx;
+    s_picker.footer_button_w = foot_btn_w;
+    const lv_coord_t header_h = std::min(header_band, screen_h);
+    const lv_coord_t footer_h = std::min(footer_band,
                                          std::max<lv_coord_t>(0, screen_h - header_h));
     const lv_coord_t body_h = std::max<lv_coord_t>(1, screen_h - header_h - footer_h);
+    const lv_coord_t foot_btn_y = std::max<lv_coord_t>(0, (footer_h - foot_btn_h) / 2);
 
     s_picker.root = lv_obj_create(parent);
     lv_obj_set_pos(s_picker.root, 0, 0);
@@ -1061,14 +1075,14 @@ void open_text_candidate_picker(lv_obj_t* textarea,
     lv_obj_set_style_text_color(s_picker.hint_label, lv_color_hex(kTextDim), LV_PART_MAIN);
 
     s_picker.category_btn = lv_btn_create(header);
-    lv_obj_set_size(s_picker.category_btn, kHeaderActionButtonWidthPx, kHeaderCloseButtonHeightPx);
+    lv_obj_set_size(s_picker.category_btn, action_btn_w, action_btn_h);
     apply_shortcut_button_style(s_picker.category_btn);
     lv_obj_clear_flag(s_picker.category_btn, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_event_cb(s_picker.category_btn, on_category_clicked, LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(s_picker.category_btn, on_picker_key, LV_EVENT_KEY, nullptr);
 
     lv_obj_t* close_btn = lv_btn_create(header);
-    lv_obj_set_size(close_btn, kHeaderActionButtonWidthPx, kHeaderCloseButtonHeightPx);
+    lv_obj_set_size(close_btn, action_btn_w, action_btn_h);
     apply_shortcut_button_style(close_btn);
     set_shortcut_button_label(close_btn, "Q", "Close");
     lv_obj_clear_flag(close_btn, LV_OBJ_FLAG_SCROLLABLE);
@@ -1096,8 +1110,8 @@ void open_text_candidate_picker(lv_obj_t* textarea,
     lv_obj_clear_flag(footer, LV_OBJ_FLAG_SCROLLABLE);
 
     s_picker.previous_btn = lv_btn_create(footer);
-    lv_obj_set_pos(s_picker.previous_btn, kPickerOuterPaddingPx, 3);
-    lv_obj_set_size(s_picker.previous_btn, kFooterButtonWidthPx, kFooterButtonHeightPx);
+    lv_obj_set_pos(s_picker.previous_btn, kPickerOuterPaddingPx, foot_btn_y);
+    lv_obj_set_size(s_picker.previous_btn, foot_btn_w, foot_btn_h);
     apply_shortcut_button_style(s_picker.previous_btn);
     set_shortcut_button_label(s_picker.previous_btn, "B", "Prev");
     lv_obj_clear_flag(s_picker.previous_btn, LV_OBJ_FLAG_SCROLLABLE);
@@ -1107,9 +1121,9 @@ void open_text_candidate_picker(lv_obj_t* textarea,
     s_picker.next_btn = lv_btn_create(footer);
     lv_obj_set_pos(s_picker.next_btn,
                    std::max<lv_coord_t>(kPickerOuterPaddingPx,
-                                        screen_w - kPickerOuterPaddingPx - kFooterButtonWidthPx),
-                   3);
-    lv_obj_set_size(s_picker.next_btn, kFooterButtonWidthPx, kFooterButtonHeightPx);
+                                        screen_w - kPickerOuterPaddingPx - foot_btn_w),
+                   foot_btn_y);
+    lv_obj_set_size(s_picker.next_btn, foot_btn_w, foot_btn_h);
     apply_shortcut_button_style(s_picker.next_btn);
     set_shortcut_button_label(s_picker.next_btn, "N", "Next");
     lv_obj_clear_flag(s_picker.next_btn, LV_OBJ_FLAG_SCROLLABLE);
@@ -1118,14 +1132,14 @@ void open_text_candidate_picker(lv_obj_t* textarea,
 
     s_picker.page_label = lv_label_create(footer);
     lv_obj_set_pos(s_picker.page_label,
-                   kPickerOuterPaddingPx + kFooterButtonWidthPx + kGridGapPx,
+                   kPickerOuterPaddingPx + foot_btn_w + kGridGapPx,
                    0);
     lv_obj_set_size(s_picker.page_label,
                     std::max<lv_coord_t>(1,
                                          screen_w -
                                              static_cast<lv_coord_t>(
                                                  2 * (kPickerOuterPaddingPx +
-                                                      kFooterButtonWidthPx + kGridGapPx))),
+                                                      foot_btn_w + kGridGapPx))),
                     footer_h);
     lv_label_set_long_mode(s_picker.page_label, LV_LABEL_LONG_CLIP);
     lv_obj_set_style_text_align(s_picker.page_label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
