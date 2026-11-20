@@ -17,6 +17,21 @@
 #define lv_font_montserrat_16 lv_font_montserrat_14
 #endif
 
+// Larger faces are only compiled into the Tab5 Sentinel image (sdkconfig.sentinel, issue
+// #9); elsewhere they fall back down the chain so this shared file still builds.
+#if !defined(LV_FONT_MONTSERRAT_18) || !LV_FONT_MONTSERRAT_18
+#define lv_font_montserrat_18 lv_font_montserrat_16
+#endif
+#if !defined(LV_FONT_MONTSERRAT_20) || !LV_FONT_MONTSERRAT_20
+#define lv_font_montserrat_20 lv_font_montserrat_18
+#endif
+#if !defined(LV_FONT_MONTSERRAT_24) || !LV_FONT_MONTSERRAT_24
+#define lv_font_montserrat_24 lv_font_montserrat_20
+#endif
+#if !defined(LV_FONT_MONTSERRAT_28) || !LV_FONT_MONTSERRAT_28
+#define lv_font_montserrat_28 lv_font_montserrat_24
+#endif
+
 namespace ui::page_profile
 {
 namespace
@@ -216,6 +231,17 @@ PageLayoutProfile make_tab5_profile()
     profile.ime_candidate_button_height = 42;
     profile.ime_keyboard_height = 320;
     profile.large_touch_hitbox = true;
+#if defined(TRAIL_MATE_SENTINEL)
+    // Sentinel Tab5 pages (GitHub issue #9). A 60 px bar puts the shared top_bar widget on its
+    // large-touch path (44 px back button, 20 px title) instead of the 24 px "dense" path that
+    // made the back arrow and title tiny on this large panel; the content fonts grow to match.
+    // Scoped to the Sentinel image, which is the only tab5 build that compiles these faces.
+    profile.top_bar_height = 60;
+    profile.title_font = &lv_font_montserrat_28;
+    profile.body_font = &lv_font_montserrat_24;
+    profile.caption_font = &lv_font_montserrat_20;
+    profile.tiny_font = &lv_font_montserrat_18;
+#endif
     return profile;
 }
 

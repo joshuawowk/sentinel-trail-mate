@@ -13,6 +13,19 @@
 #define lv_font_montserrat_16 lv_font_montserrat_14
 #endif
 
+// Larger faces are only compiled into the Tab5 Sentinel image (sdkconfig.sentinel, issue
+// #9). On every other target they fall back down the chain to an enabled size so this
+// shared file still builds.
+#if !defined(LV_FONT_MONTSERRAT_18) || !LV_FONT_MONTSERRAT_18
+#define lv_font_montserrat_18 lv_font_montserrat_16
+#endif
+#if !defined(LV_FONT_MONTSERRAT_20) || !LV_FONT_MONTSERRAT_20
+#define lv_font_montserrat_20 lv_font_montserrat_18
+#endif
+#if !defined(LV_FONT_MONTSERRAT_24) || !LV_FONT_MONTSERRAT_24
+#define lv_font_montserrat_24 lv_font_montserrat_20
+#endif
+
 namespace ui::menu_profile
 {
 namespace
@@ -152,6 +165,32 @@ MenuLayoutProfile make_tab5_profile()
     profile.node_id_font = &lv_font_montserrat_16;
     profile.top_bar_font = &lv_font_montserrat_14;
     profile.badge_font = &lv_font_montserrat_16;
+#if defined(TRAIL_MATE_SENTINEL)
+    // Sentinel Tab5 home menu (GitHub issues #9/#11). The 1280 px panel is wide, so grow the
+    // cards and space them out, then centre the grid (grid_anchor_top_left = false) instead of
+    // leaving it pinned to the left half with a large empty gap on the right. Four 230 px
+    // columns with 28 px gutters span ~1012 px, balanced each side, and still fit labels such
+    // as "Return to Sentinel" without an ellipsis. Icons stay at source size (scale 256):
+    // LargeTouchGrid scales icons with a layout-free transform, so upscaling would overlap the
+    // label below. Larger chrome fonts need a slightly taller bar for the clock/node-id.
+    // Scoped to the Sentinel image: the standalone tab5 build does not compile the larger
+    // Montserrat faces, so it keeps the original layout and font sizes.
+    profile.card_width = 230;
+    profile.card_height = 150;
+    profile.card_pad_top = 6;
+    profile.card_pad_bottom = 6;
+    profile.card_pad_row = 6;
+    profile.grid_height_pct = 90;
+    profile.grid_pad_row = 16;
+    profile.grid_pad_column = 28;
+    profile.top_bar_height = 34;
+    profile.grid_anchor_top_left = false;
+    profile.card_label_font = &lv_font_montserrat_24;
+    profile.desc_font = &lv_font_montserrat_20;
+    profile.node_id_font = &lv_font_montserrat_20;
+    profile.top_bar_font = &lv_font_montserrat_18;
+    profile.badge_font = &lv_font_montserrat_18;
+#endif
     return profile;
 }
 

@@ -69,3 +69,20 @@ CONFIG_LWIP_TCP_RECVMBOX_SIZE=64
 CONFIG_LWIP_TCPIP_RECVMBOX_SIZE=64
 CONFIG_LWIP_TCP_SACK_OUT=y
 
+# --- UI: readable fonts on the 1280x720 Tab5 panel (GitHub issue #9) ---
+# LVGL is Kconfig-driven in this build (CONFIG_LV_CONF_SKIP=1). The stock configuration
+# enables only Montserrat 14 and makes it the default, so every label the Tab5 page/menu
+# profiles request at 16/18/20/24/28 px silently falls back to 14 px (see the
+# `#if !LV_FONT_MONTSERRAT_*` guards in page_profile.cpp / menu_profile.cpp) and renders
+# unreadably small on this large, high-DPI display. Compile the larger sizes the Tab5
+# profiles use and raise the inherited default so untitled chrome (nav buttons, dropdowns)
+# grows too. Only the Sentinel profile carries this, so the standalone Tab5 image is
+# unchanged. Cost is ~40 KB of flash (each face is a few KB at -Os); the image still fits
+# its slot with room to spare.
+CONFIG_LV_FONT_MONTSERRAT_16=y
+CONFIG_LV_FONT_MONTSERRAT_18=y
+CONFIG_LV_FONT_MONTSERRAT_20=y
+CONFIG_LV_FONT_MONTSERRAT_24=y
+CONFIG_LV_FONT_MONTSERRAT_28=y
+CONFIG_LV_FONT_DEFAULT_MONTSERRAT_20=y
+
