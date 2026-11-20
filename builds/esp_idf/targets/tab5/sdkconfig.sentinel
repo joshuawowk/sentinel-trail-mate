@@ -86,3 +86,13 @@ CONFIG_LV_FONT_MONTSERRAT_24=y
 CONFIG_LV_FONT_MONTSERRAT_28=y
 CONFIG_LV_FONT_DEFAULT_MONTSERRAT_20=y
 
+# --- UI: dark mode (GitHub issue #10) ---
+# ui::dark_mode attaches an inheritable LVGL colour filter (lightness invert) to the active
+# screen and the top/system layers. LVGL's colour-filter subsystem is Kconfig-gated and its
+# ESP default is OFF: with CONFIG_LV_USE_COLOR_FILTER unset, LV_USE_COLOR_FILTER is 0 and
+# lv_obj_style_apply_color_filter() compiles to `return v` -- every `_filtered` getter in the
+# draw path returns the colour unchanged, so the dark-mode filter renders nothing at all
+# (the style is attached and inheritable, but never consumed). Enable it so the filter is
+# actually applied. Cost is a small per-colour callback at draw time; negligible here.
+CONFIG_LV_USE_COLOR_FILTER=y
+

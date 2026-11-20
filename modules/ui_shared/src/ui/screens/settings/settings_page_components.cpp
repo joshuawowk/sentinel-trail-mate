@@ -44,6 +44,7 @@
 #include "ui/app_runtime.h"
 #include "ui/assets/fonts/font_utils.h"
 #include "ui/components/dialog_frame.h"
+#include "ui/dark_mode.h"
 #include "ui/localization.h"
 #include "ui/menu/menu_layout.h"
 #include "ui/page/page_profile.h"
@@ -1799,6 +1800,7 @@ static void settings_load()
     g_settings.display_locale_index = ::ui::i18n::current_locale_index();
 
     g_settings.vibration_enabled = prefs_get_bool("vibration_enabled", true);
+    g_settings.dark_mode = prefs_get_bool("dark_mode", ::ui::dark_mode::default_enabled());
     refresh_wifi_state_from_runtime();
     refresh_firmware_update_state_from_runtime();
     refresh_wireless_companion_state_from_runtime();
@@ -5386,6 +5388,7 @@ static const settings::ui::SettingItem kDeviceItems[] = {
     {"Speaker Volume", settings::ui::SettingType::Enum, kSpeakerVolumeOptions,
      sizeof(kSpeakerVolumeOptions) / sizeof(kSpeakerVolumeOptions[0]), &g_settings.speaker_volume, nullptr, nullptr, 0, false, "speaker_volume"},
     {"Vibration", settings::ui::SettingType::Toggle, nullptr, 0, nullptr, &g_settings.vibration_enabled, nullptr, 0, false, "vibration_enabled"},
+    {"Dark Mode", settings::ui::SettingType::Toggle, nullptr, 0, nullptr, &g_settings.dark_mode, nullptr, 0, false, "dark_mode"},
     {"C6 Companion", settings::ui::SettingType::Info, nullptr, 0, nullptr, nullptr,
      g_settings.c6_companion_status, sizeof(g_settings.c6_companion_status), false, "c6_companion_status"},
     {"C6 Download Mode", settings::ui::SettingType::Action, nullptr, 0, nullptr, nullptr, nullptr, 0, false, "c6_enter_download"},
@@ -5969,6 +5972,11 @@ static bool activate_item_widget(settings::ui::ItemWidget& widget)
             update_item_value(widget);
             switch (id)
             {
+            case settings::ui::SettingId::DarkMode:
+                // Inheritable colour filter on the active screen: re-rendering applies it
+                // to the whole UI at once (GitHub issue #10).
+                ::ui::dark_mode::apply(*item.bool_value);
+                break;
             case settings::ui::SettingId::NetRelay:
             {
                 app::IAppFacade& app_ctx = app::appFacade();

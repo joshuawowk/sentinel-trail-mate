@@ -26,6 +26,7 @@
 #include "product_composition/target_ux_binding.h"
 #include "ui/app_registry.h"
 #include "ui/app_runtime.h"
+#include "ui/dark_mode.h"
 #include "ui/startup_shell.h"
 #endif
 
@@ -180,6 +181,16 @@ void runEsp32LvglStartupRuntime(const Esp32LvglRuntimeConfig& config)
     platform::esp::idf_common::sentinel::on_board_initialized();
 #endif
     showBootUi(config, waking_from_sleep, "Starting services...");
+    // Apply the persisted dark-mode preference before the main UI is built, so every screen
+    // comes up in the chosen theme (GitHub issue #10). The lightness-invert filter sits on the
+    // single active screen and is inherited by content created afterwards. Defaults to dark on
+    // the Sentinel image; untouched (light) elsewhere.
+    if (lockUi(1000))
+    {
+        ui::dark_mode::apply(platform::ui::settings_store::get_bool(
+            "settings", "dark_mode", ui::dark_mode::default_enabled()));
+        unlockUi();
+    }
     if (platform::esp::boards::syncSystemTimeFromBoardRtc())
     {
         ESP_LOGI(config.log_tag, "Boot time restored from hardware RTC");
