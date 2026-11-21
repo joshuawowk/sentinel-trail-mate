@@ -141,7 +141,13 @@ bool hardware_keyboard_available()
 static const char* const kTouchEnMap[] = {
     "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "Bksp", "\n",
     "a", "s", "d", "f", "g", "h", "j", "k", "l", "Enter", "\n",
-    "z", "x", "c", "v", "b", "n", "m", ",", ".", "?", "\n",
+    "Shift", "z", "x", "c", "v", "b", "n", "m", ",", ".", "?", "\n",
+    "Space", ""};
+
+static const char* const kTouchUpperMap[] = {
+    "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "Bksp", "\n",
+    "A", "S", "D", "F", "G", "H", "J", "K", "L", "Enter", "\n",
+    "Shift", "Z", "X", "C", "V", "B", "N", "M", ",", ".", "?", "\n",
     "Space", ""};
 
 static const char* const kCompactTouchEnMap[] = {
@@ -979,9 +985,10 @@ void ImeWidget::refresh_touch_keyboard()
     {
         return;
     }
-    const char* const* map = kTouchEnMap;
+    const bool en_upper = touch_shift_ && mode_ == Mode::EN;
     const bool compact = ::ui::page_profile::current().compact_touch_keyboard;
-    if (compact) map = touch_shift_ && mode_ == Mode::EN ? kCompactTouchUpperMap : kCompactTouchEnMap;
+    const char* const* map = compact ? (en_upper ? kCompactTouchUpperMap : kCompactTouchEnMap)
+                                     : (en_upper ? kTouchUpperMap : kTouchEnMap);
     const lv_font_t* font = ::ui::fonts::localized_font(::ui::fonts::ui_chrome_font());
     if (mode_ == Mode::NUM)
     {

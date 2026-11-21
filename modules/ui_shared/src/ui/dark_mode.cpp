@@ -35,7 +35,18 @@ lv_color_t invert_lightness(const lv_color_filter_dsc_t*, lv_color_t c, lv_opa_t
     int mn = r < g ? r : g;
     if (b < mn) mn = b;
     const int delta = 255 - (mx + mn);
-    return lv_color_make(clamp_u8(r + delta), clamp_u8(g + delta), clamp_u8(b + delta));
+    int nr = clamp_u8(r + delta);
+    int ng = clamp_u8(g + delta);
+    int nb = clamp_u8(b + delta);
+    // The plain inversion of Trail Mate's warm cream palette lands on washed, mid-dark
+    // "olive/pea-soup" backgrounds that look muddy and low-contrast on a backlit panel
+    // (the backlight bleeds through, raising the black level). Deepen the result with a
+    // quadratic (gamma ~2) curve: it drives dark backgrounds toward near-black -- raising
+    // contrast and removing the green cast -- while leaving light text/icons bright.
+    nr = (nr * nr) / 255;
+    ng = (ng * ng) / 255;
+    nb = (nb * nb) / 255;
+    return lv_color_make(static_cast<uint8_t>(nr), static_cast<uint8_t>(ng), static_cast<uint8_t>(nb));
 }
 
 void ensure_filter()
