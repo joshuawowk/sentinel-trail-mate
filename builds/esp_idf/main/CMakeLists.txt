@@ -143,9 +143,13 @@ if(TRAIL_MATE_IDF_TARGET STREQUAL "tdeck")
 endif()
 
 target_compile_features(${COMPONENT_LIB} PUBLIC cxx_std_17)
-if(TRAIL_MATE_IDF_TARGET MATCHES "^t_display_p4_(tft|amoled)(_lr2021)?$")
+if(TRAIL_MATE_IDF_TARGET MATCHES "^t_display_p4_(tft|amoled)(_lr2021)?$" OR
+   (TRAIL_MATE_IDF_TARGET STREQUAL "tab5" AND TRAIL_MATE_SENTINEL))
     # LVGL introduces these references after libmain's archive scan. Keep the
     # custom allocator object reachable regardless of component archive order.
+    # The Tab5 Sentinel build also selects CONFIG_LV_USE_CUSTOM_MALLOC (route LVGL
+    # allocations to PSRAM so the on-screen keyboard can't exhaust the 64 KB builtin
+    # pool and hang in LV_ASSERT_MALLOC; see GitHub issue #17).
     target_link_options(${COMPONENT_LIB} INTERFACE "-Wl,--undefined=lv_malloc_core")
 endif()
 if(NOT CMAKE_BUILD_EARLY_EXPANSION)

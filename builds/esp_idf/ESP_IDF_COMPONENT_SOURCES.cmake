@@ -200,6 +200,7 @@ set(TRAILMATE_ESP_IDF_CORE_PHONE_SOURCES
     "${TRAILMATE_ROOT}/modules/core_phone/src/meshtastic/meshtastic_phone_session.cpp")
 
 set(TRAILMATE_ESP_IDF_UI_SHARED_SOURCES
+    "${TRAILMATE_ROOT}/modules/ui_shared/src/ui/dark_mode.cpp"
     "${TRAILMATE_ROOT}/modules/ui_shared/src/ui/assets/fm_radio_icon.c"
     "${TRAILMATE_ROOT}/modules/ui_shared/src/ui/assets/oneseg_tv_icon.c"
     "${TRAILMATE_ROOT}/modules/ui_shared/src/ui/assets/music.c"

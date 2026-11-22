@@ -1,6 +1,6 @@
 
 idf_component_register(
-    SRCS "m5stack_tab5.c" "esp_lcd_st7123.c" "trail_mate_tab5_runtime.cpp"
+    SRCS "m5stack_tab5.c" "esp_lcd_st7123.c" "esp_lcd_st7121.c" "trail_mate_tab5_runtime.cpp"
     INCLUDE_DIRS "include" "include/bsp"
     PRIV_INCLUDE_DIRS "priv_include"
     REQUIRES

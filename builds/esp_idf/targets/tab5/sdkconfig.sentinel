@@ -69,3 +69,40 @@ CONFIG_LWIP_TCP_RECVMBOX_SIZE=64
 CONFIG_LWIP_TCPIP_RECVMBOX_SIZE=64
 CONFIG_LWIP_TCP_SACK_OUT=y
 
+# --- UI: readable fonts on the 1280x720 Tab5 panel (GitHub issue #9) ---
+# LVGL is Kconfig-driven in this build (CONFIG_LV_CONF_SKIP=1). The stock configuration
+# enables only Montserrat 14 and makes it the default, so every label the Tab5 page/menu
+# profiles request at 16/18/20/24/28 px silently falls back to 14 px (see the
+# `#if !LV_FONT_MONTSERRAT_*` guards in page_profile.cpp / menu_profile.cpp) and renders
+# unreadably small on this large, high-DPI display. Compile the larger sizes the Tab5
+# profiles use and raise the inherited default so untitled chrome (nav buttons, dropdowns)
+# grows too. Only the Sentinel profile carries this, so the standalone Tab5 image is
+# unchanged. Cost is ~40 KB of flash (each face is a few KB at -Os); the image still fits
+# its slot with room to spare.
+CONFIG_LV_FONT_MONTSERRAT_16=y
+CONFIG_LV_FONT_MONTSERRAT_18=y
+CONFIG_LV_FONT_MONTSERRAT_20=y
+CONFIG_LV_FONT_MONTSERRAT_24=y
+CONFIG_LV_FONT_MONTSERRAT_28=y
+CONFIG_LV_FONT_DEFAULT_MONTSERRAT_20=y
+
+# --- UI: dark mode (GitHub issue #10) ---
+# ui::dark_mode attaches an inheritable LVGL colour filter (lightness invert) to the active
+# screen and the top/system layers. LVGL's colour-filter subsystem is Kconfig-gated and its
+# ESP default is OFF: with CONFIG_LV_USE_COLOR_FILTER unset, LV_USE_COLOR_FILTER is 0 and
+# lv_obj_style_apply_color_filter() compiles to `return v` -- every `_filtered` getter in the
+# draw path returns the colour unchanged, so the dark-mode filter renders nothing at all
+# (the style is attached and inheritable, but never consumed). Enable it so the filter is
+# actually applied. Cost is a small per-colour callback at draw time; negligible here.
+CONFIG_LV_USE_COLOR_FILTER=y
+
+
+# --- UI: route LVGL allocations to PSRAM (GitHub issue #17) ---
+# LVGL's builtin allocator uses a fixed 64 KB pool (CONFIG_LV_USE_BUILTIN_MALLOC +
+# LV_MEM_SIZE). On the Tab5 the on-screen keyboard's symbol/candidate picker exhausts that
+# pool, and because LV_USE_ASSERT_MALLOC is on, the failed allocation spins forever in
+# LV_ASSERT_MALLOC -> the LVGL task hangs -> the 20 s task watchdog reboots the device (#17).
+# platform/esp/idf_common/src/lvgl_memory.cpp already routes lv_malloc to PSRAM (27 MB on the
+# Tab5) but only compiles in under LV_STDLIB_CUSTOM, so select the custom allocator here.
+# Object/style allocations are not DMA'd; draw buffers keep their SDK-owned DMA allocation.
+CONFIG_LV_USE_CUSTOM_MALLOC=y
