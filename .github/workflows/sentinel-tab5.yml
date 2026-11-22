@@ -47,6 +47,17 @@ jobs:
           fi
           echo "version=${VERSION:-unknown}" >> "$GITHUB_OUTPUT"
 
+      - name: Pin the component manager (Sentinel)
+        if: matrix.sentinel == 'ON'
+        shell: bash
+        run: |
+          # The espressif/idf:v5.5.4 image ships idf-component-manager 2.4.8, which fails the
+          # Sentinel configure with "Missing required kconfig option after retry": esp_hosted's
+          # manifest guards optional USB host dependencies with Kconfig options that no
+          # component defines. 2.5.2 resolves the same lock file (and is what local builds use).
+          source "${IDF_PATH}/export.sh"
+          python -m pip install "idf-component-manager==2.5.2"
+
       - name: Build
         shell: bash
         run: |
