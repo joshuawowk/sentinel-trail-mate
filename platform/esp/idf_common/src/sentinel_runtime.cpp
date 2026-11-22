@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "a164_keyboard.h"
 #include "bsp/m5stack_tab5.h"
 #include "esp_app_desc.h"
 #include "esp_cache.h"
@@ -20,6 +21,7 @@
 #include "hal/usb_serial_jtag_ll.h"
 #include "lvgl.h"
 #include "platform/esp/idf_common/screen_touch.h"
+#include "platform/esp/idf_common/sentinel_keyboard.h"
 #include "platform/ui/wifi_runtime.h"
 #include "sentinel_app.h"
 #include "sentinel_wifi.h"
@@ -580,6 +582,175 @@ void cmd_wifi(int argc, char** argv)
     reply_ok("wifi \"%s\"", s.message);
 }
 
+// ---------------------------------------------------------------------------------------
+// kbd: the Tab5 Keyboard (A164). Status, recent keys, where keys go, and key injection at the
+// queue the keyboard's poll task fills (so a test covers everything but the I2C read).
+
+struct KeyName
+{
+    const char* name;
+    uint8_t code;
+};
+
+constexpr KeyName kKeyNames[] = {
+    {"enter", 0x28},
+    {"esc", 0x29},
+    {"bksp", 0x2A},
+    {"backspace", 0x2A},
+    {"tab", 0x2B},
+    {"space", 0x2C},
+    {"home", 0x4A},
+    {"del", 0x4C},
+    {"end", 0x4D},
+    {"right", 0x4F},
+    {"left", 0x50},
+    {"down", 0x51},
+    {"up", 0x52},
+};
+
+bool parse_key(const char* text, uint8_t* code)
+{
+    for (const KeyName& k : kKeyNames)
+    {
+        if (std::strcmp(text, k.name) == 0)
+        {
+            *code = k.code;
+            return true;
+        }
+    }
+    char* end = nullptr;
+    const long v = std::strtol(text, &end, 0);
+    if (end != text && *end == '\0' && v > 0 && v < 0x100)
+    {
+        *code = static_cast<uint8_t>(v);
+        return true;
+    }
+    return false;
+}
+
+uint8_t parse_modifier(const char* text)
+{
+    if (text == nullptr) return 0;
+    if (std::strcmp(text, "shift") == 0) return 0x02;
+    if (std::strcmp(text, "ctrl") == 0) return 0x01;
+    if (std::strcmp(text, "alt") == 0) return 0x04;
+    return static_cast<uint8_t>(std::strtol(text, nullptr, 0));
+}
+
+void emit_reply(const char* line, void*)
+{
+    reply("%s", line);
+}
+
+void kbd_status()
+{
+    namespace kbd = ::platform::esp::idf_common::sentinel_keyboard;
+    a164_kbd_status_t st;
+    a164_kbd_get_status(&st);
+    reply("present %d i2c_port %d firmware 0x%02X found_in_mode %u connects %lu events %lu injected %lu dropped %lu",
+          st.present ? 1 : 0, st.i2c_port, st.version, st.mode_found, static_cast<unsigned long>(st.connects),
+          static_cast<unsigned long>(st.events), static_cast<unsigned long>(st.injected),
+          static_cast<unsigned long>(st.dropped));
+    reply("route %s  ime sees keyboard %d", kbd::route() == kbd::Route::Smart ? "smart" : "group",
+          kbd::present() ? 1 : 0);
+    kbd::describe_focus(emit_reply, nullptr);
+}
+
+// "kbd type <text>": the rest of the line, spaces included.
+void kbd_type(const char* text)
+{
+    namespace kbd = ::platform::esp::idf_common::sentinel_keyboard;
+    unsigned typed = 0;
+    for (const char* p = text; *p != '\0'; ++p)
+    {
+        uint8_t code = 0;
+        uint8_t mod = 0;
+        if (!kbd::ascii_to_hid(*p, &code, &mod))
+        {
+            reply_err("no key types '%c'", *p);
+            return;
+        }
+        if (!a164_kbd_inject(code, mod))
+        {
+            reply_err("keyboard queue unavailable");
+            return;
+        }
+        ++typed;
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }
+    reply_ok("typed %u", typed);
+}
+
+void cmd_kbd(int argc, char** argv)
+{
+    namespace kbd = ::platform::esp::idf_common::sentinel_keyboard;
+    const char* sub = argc > 1 ? argv[1] : "";
+    if (sub[0] == '\0')
+    {
+        kbd_status();
+        reply_ok("kbd");
+        return;
+    }
+    if (std::strcmp(sub, "hist") == 0)
+    {
+        a164_kbd_event_t ev[16];
+        uint32_t age[16];
+        const int n = a164_kbd_history(ev, age, 16);
+        for (int i = 0; i < n; ++i)
+        {
+            reply("mod %02x key %02x %s  %lu ms ago", ev[i].modifier, ev[i].keycode, ev[i].keycode ? "down" : "up",
+                  static_cast<unsigned long>(age[i]));
+        }
+        reply_ok("hist %d", n);
+        return;
+    }
+    if (std::strcmp(sub, "key") == 0 || std::strcmp(sub, "hold") == 0)
+    {
+        const bool hold = std::strcmp(sub, "hold") == 0;
+        uint8_t code = 0;
+        if (argc < 3 || !parse_key(argv[2], &code))
+        {
+            reply_err("usage: kbd key <name|code> [shift|ctrl|alt|mod]  /  kbd hold <name|code> <ms> [mod]");
+            return;
+        }
+        const int ms = hold && argc > 3 ? std::atoi(argv[3]) : 0;
+        const uint8_t mod = parse_modifier(argc > (hold ? 4 : 3) ? argv[hold ? 4 : 3] : nullptr);
+        if (!hold)
+        {
+            a164_kbd_inject(code, mod) ? reply_ok("key %02x mod %02x", code, mod) : reply_err("not started");
+            return;
+        }
+        if (!a164_kbd_inject_edge(code, mod))
+        {
+            reply_err("not started");
+            return;
+        }
+        vTaskDelay(pdMS_TO_TICKS(ms > 0 ? ms : 1000));
+        (void)a164_kbd_inject_edge(0, mod);
+        reply_ok("held %02x for %d ms", code, ms > 0 ? ms : 1000);
+        return;
+    }
+    if (std::strcmp(sub, "route") == 0 && argc > 2)
+    {
+        if (std::strcmp(argv[2], "smart") == 0)
+        {
+            kbd::set_route(kbd::Route::Smart);
+        }
+        else if (std::strcmp(argv[2], "group") == 0)
+        {
+            kbd::set_route(kbd::Route::Group);
+        }
+        else
+        {
+            reply_err("usage: kbd route smart|group");
+            return;
+        }
+        reply_ok("route %s", argv[2]);
+        return;
+    }
+    reply_err("usage: kbd [hist | key <k> [mod] | hold <k> <ms> [mod] | type <text> | route smart|group]");
+}
+
 void cmd_help(int, char**)
 {
     reply("info               app, version and memory");
@@ -590,11 +761,20 @@ void cmd_help(int, char**)
     reply("drag <x0> <y0> <x1> <y1> [ms]   inject a stroke (a swipe up resumes the saver)");
     reply("wifi [on|off|scan] Wi-Fi state; switch it; list networks in range");
     reply("wifi join <ssid> [password]   save a network and join it (joinhex: both hex-encoded)");
+    reply("kbd                Tab5 Keyboard: status and where keys go (hist: recent keys)");
+    reply("kbd key <k> [mod] | hold <k> <ms> | type <text>   inject keys (k: name or HID code)");
     reply_ok("help");
 }
 
 void handle_line(char* line)
 {
+    // "kbd type" takes the rest of the line verbatim, spaces included.
+    if (std::strncmp(line, "kbd type ", 9) == 0)
+    {
+        ESP_LOGI(kTag, "console: kbd type");
+        kbd_type(line + 9);
+        return;
+    }
     char* argv[8] = {};
     int argc = 0;
     for (char* tok = std::strtok(line, " \t"); tok != nullptr && argc < 8; tok = std::strtok(nullptr, " \t"))
@@ -638,6 +818,10 @@ void handle_line(char* line)
     else if (std::strcmp(cmd, "drag") == 0)
     {
         cmd_drag(argc, argv);
+    }
+    else if (std::strcmp(cmd, "kbd") == 0)
+    {
+        cmd_kbd(argc, argv);
     }
     else if (std::strcmp(cmd, "help") == 0)
     {

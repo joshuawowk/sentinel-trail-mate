@@ -13,6 +13,7 @@
 #include "platform/esp/idf_common/debug/sd_coredump_export.h"
 #include "platform/esp/idf_common/reticulum_call_runtime_support.h"
 #if defined(TRAIL_MATE_SENTINEL)
+#include "platform/esp/idf_common/sentinel_keyboard.h"
 #include "platform/esp/idf_common/sentinel_runtime.h"
 #endif
 #include "platform/esp/idf_common/startup_support.h"
@@ -179,6 +180,9 @@ void runEsp32LvglStartupRuntime(const Esp32LvglRuntimeConfig& config)
 #if defined(TRAIL_MATE_SENTINEL)
     // The Tab5's IO expanders are reset and programmed by the display bring-up.
     platform::esp::idf_common::sentinel::on_board_initialized();
+    // The Tab5 Keyboard (A164, I2C on the J9 expansion port) once the display and LVGL
+    // are up. Safe with no keyboard docked: it is found when it is attached.
+    platform::esp::idf_common::sentinel_keyboard::start(lv_display_get_default());
 #endif
     showBootUi(config, waking_from_sleep, "Starting services...");
     // Apply the persisted dark-mode preference before the main UI is built, so every screen

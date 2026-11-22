@@ -4,6 +4,10 @@
 #include "bsp/trail_mate_t_display_p4_keyboard.h"
 #endif
 
+#if defined(TRAIL_MATE_SENTINEL)
+#include "platform/esp/idf_common/sentinel_keyboard.h"
+#endif
+
 namespace
 {
 
@@ -47,7 +51,15 @@ lv_indev_t* lv_get_keyboard_indev()
         return nullptr;
     }
 #endif
+#if defined(TRAIL_MATE_SENTINEL)
+    // The Tab5 Keyboard's input device stays registered while the keyboard is undocked
+    // so a later dock just works. Report a hardware keyboard only while it answers, so
+    // text fields keep offering the on-screen keyboard when nothing is attached.
+    namespace kbd = platform::esp::idf_common::sentinel_keyboard;
+    return kbd::present() ? kbd::indev() : nullptr;
+#else
     return find_indev(LV_INDEV_TYPE_KEYPAD);
+#endif
 }
 
 lv_indev_t* lv_get_encoder_indev()
