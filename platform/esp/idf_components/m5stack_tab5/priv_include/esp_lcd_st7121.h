@@ -6,13 +6,13 @@
 
 #pragma once
 
-#include <stdint.h>
 #include "soc/soc_caps.h"
+#include <stdint.h>
 
 #if SOC_MIPI_DSI_SUPPORTED
-#include "esp_lcd_panel_vendor.h"
-#include "esp_lcd_mipi_dsi.h"
 #include "esp_idf_version.h"
+#include "esp_lcd_mipi_dsi.h"
+#include "esp_lcd_panel_vendor.h"
 
 /* Version macros */
 #define ESP_LCD_ST7121_VER_MAJOR (1)
@@ -20,56 +20,59 @@
 #define ESP_LCD_ST7121_VER_PATCH (0)
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-/**
- * @brief LCD panel initialization commands.
- *
- */
-typedef struct {
-    int cmd;               /*<! The specific LCD command */
-    const void *data;      /*<! Buffer that holds the command specific data */
-    size_t data_bytes;     /*<! Size of `data` in memory, in bytes */
-    unsigned int delay_ms; /*<! Delay in milliseconds after this command */
-} st7121_lcd_init_cmd_t;
+    /**
+     * @brief LCD panel initialization commands.
+     *
+     */
+    typedef struct
+    {
+        int cmd;               /*<! The specific LCD command */
+        const void* data;      /*<! Buffer that holds the command specific data */
+        size_t data_bytes;     /*<! Size of `data` in memory, in bytes */
+        unsigned int delay_ms; /*<! Delay in milliseconds after this command */
+    } st7121_lcd_init_cmd_t;
 
-/**
- * @brief LCD panel vendor configuration.
- *
- * @note  This structure needs to be passed to the `vendor_config` field in `esp_lcd_panel_dev_config_t`.
- *
- */
-typedef struct {
-    const st7121_lcd_init_cmd_t
-        *init_cmds;          /*!< Pointer to initialization commands array. Set to NULL if using default commands.
-                              *   The array should be declared as `static const` and positioned outside the function.
-                              *   Please refer to `vendor_specific_init_default` in source file.
-                              */
-    uint16_t init_cmds_size; /*<! Number of commands in above array */
-    struct {
-        esp_lcd_dsi_bus_handle_t dsi_bus;             /*!< MIPI-DSI bus configuration */
-        const esp_lcd_dpi_panel_config_t *dpi_config; /*!< MIPI-DPI panel configuration */
-    } mipi_config;
-} st7121_vendor_config_t;
+    /**
+     * @brief LCD panel vendor configuration.
+     *
+     * @note  This structure needs to be passed to the `vendor_config` field in `esp_lcd_panel_dev_config_t`.
+     *
+     */
+    typedef struct
+    {
+        const st7121_lcd_init_cmd_t* init_cmds; /*!< Pointer to initialization commands array. Set to NULL if using default commands.
+                                                 *   The array should be declared as `static const` and positioned outside the function.
+                                                 *   Please refer to `vendor_specific_init_default` in source file.
+                                                 */
+        uint16_t init_cmds_size;                /*<! Number of commands in above array */
+        struct
+        {
+            esp_lcd_dsi_bus_handle_t dsi_bus;             /*!< MIPI-DSI bus configuration */
+            const esp_lcd_dpi_panel_config_t* dpi_config; /*!< MIPI-DPI panel configuration */
+        } mipi_config;
+    } st7121_vendor_config_t;
 
-/**
- * @brief Create LCD panel for model st7121
- *
- * @note  Vendor specific initialization can be different between manufacturers, should consult the LCD supplier for
- * initialization sequence code.
- *
- * @param[in]  io LCD panel IO handle
- * @param[in]  panel_dev_config General panel device configuration
- * @param[out] ret_panel Returned LCD panel handle
- * @return
- *      - ESP_ERR_INVALID_ARG   if parameter is invalid
- *      - ESP_OK                on success
- *      - Otherwise             on fail
- */
-esp_err_t esp_lcd_new_panel_st7121(const esp_lcd_panel_io_handle_t io,
-                                   const esp_lcd_panel_dev_config_t *panel_dev_config,
-                                   esp_lcd_panel_handle_t *ret_panel);
+    /**
+     * @brief Create LCD panel for model st7121
+     *
+     * @note  Vendor specific initialization can be different between manufacturers, should consult the LCD supplier for
+     * initialization sequence code.
+     *
+     * @param[in]  io LCD panel IO handle
+     * @param[in]  panel_dev_config General panel device configuration
+     * @param[out] ret_panel Returned LCD panel handle
+     * @return
+     *      - ESP_ERR_INVALID_ARG   if parameter is invalid
+     *      - ESP_OK                on success
+     *      - Otherwise             on fail
+     */
+    esp_err_t esp_lcd_new_panel_st7121(const esp_lcd_panel_io_handle_t io,
+                                       const esp_lcd_panel_dev_config_t* panel_dev_config,
+                                       esp_lcd_panel_handle_t* ret_panel);
 
 /**
  * @brief MIPI-DSI bus configuration structure
@@ -108,12 +111,12 @@ esp_err_t esp_lcd_new_panel_st7121(const esp_lcd_panel_io_handle_t io,
         .pixel_format = px_format, .num_fbs = 1,                                                     \
         .video_timing =                                                                              \
             {                                                                                        \
-                .h_size            = 720,                                                            \
-                .v_size            = 1560,                                                           \
-                .hsync_back_porch  = 40,                                                             \
+                .h_size = 720,                                                                       \
+                .v_size = 1560,                                                                      \
+                .hsync_back_porch = 40,                                                              \
                 .hsync_pulse_width = 2,                                                              \
                 .hsync_front_porch = 40,                                                             \
-                .vsync_back_porch  = 4,                                                              \
+                .vsync_back_porch = 4,                                                               \
                 .vsync_pulse_width = 2,                                                              \
                 .vsync_front_porch = 320,                                                            \
             },                                                                                       \
@@ -135,12 +138,12 @@ esp_err_t esp_lcd_new_panel_st7121(const esp_lcd_panel_io_handle_t io,
         .dpi_clk_src = MIPI_DSI_DPI_CLK_SRC_DEFAULT, .dpi_clock_freq_mhz = 78, .virtual_channel = 0, \
         .in_color_format = color_format, .num_fbs = 1,                                               \
         .video_timing = {                                                                            \
-            .h_size            = 720,                                                                \
-            .v_size            = 1560,                                                               \
-            .hsync_back_porch  = 40,                                                                 \
+            .h_size = 720,                                                                           \
+            .v_size = 1560,                                                                          \
+            .hsync_back_porch = 40,                                                                  \
             .hsync_pulse_width = 2,                                                                  \
             .hsync_front_porch = 40,                                                                 \
-            .vsync_back_porch  = 4,                                                                  \
+            .vsync_back_porch = 4,                                                                   \
             .vsync_pulse_width = 2,                                                                  \
             .vsync_front_porch = 320,                                                                \
         },                                                                                           \

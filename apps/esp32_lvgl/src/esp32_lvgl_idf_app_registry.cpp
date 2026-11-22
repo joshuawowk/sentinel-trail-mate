@@ -34,7 +34,7 @@ extern "C" const lv_image_dsc_t Setting;
 #if defined(TRAIL_MATE_SENTINEL)
 extern "C" const lv_image_dsc_t sentinel_home;
 #endif
-}
+} // namespace ui::assets
 
 namespace
 {
