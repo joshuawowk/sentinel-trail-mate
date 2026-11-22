@@ -46,10 +46,11 @@ if(TRAIL_MATE_SENTINEL)
     # CMakeLists.txt sets.
     list(APPEND TRAILMATE_ESP_IDF_PLATFORM_SOURCES
         "${TRAILMATE_ROOT}/platform/esp/idf_common/src/sentinel_runtime.cpp"
+        "${TRAILMATE_ROOT}/platform/esp/idf_common/src/sentinel_keyboard.cpp"
         "${TRAILMATE_ROOT}/platform/esp/idf_common/src/socket_tcp_transport.cpp"
         "${TRAILMATE_ROOT}/modules/ui_shared/src/ui/assets/sentinel_home.c")
-    # sentinel_wifi: Wi-Fi via the C6's shared esp-hosted firmware. a164_keyboard:
-    # the M5Stack A164 I2C keyboard as an LVGL KEYPAD indev (Tab5 Sentinel only).
+    # sentinel_wifi: Wi-Fi via the C6's shared esp-hosted firmware. a164_keyboard: the
+    # Tab5 Keyboard's I2C driver (sentinel_keyboard.cpp makes it LVGL input).
     list(APPEND TRAILMATE_ESP_IDF_SENTINEL_REQUIRES sentinel_wifi a164_keyboard)
 endif()
 

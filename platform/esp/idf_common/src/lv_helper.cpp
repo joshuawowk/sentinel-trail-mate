@@ -5,7 +5,7 @@
 #endif
 
 #if defined(TRAIL_MATE_SENTINEL)
-#include "a164_keyboard.h"
+#include "platform/esp/idf_common/sentinel_keyboard.h"
 #endif
 
 namespace
@@ -52,16 +52,14 @@ lv_indev_t* lv_get_keyboard_indev()
     }
 #endif
 #if defined(TRAIL_MATE_SENTINEL)
-    // The A164 keypad indev stays registered while the keyboard is undocked so
-    // its poll task can hot-detect a later dock. Report "no hardware keyboard"
-    // until it actually answers, so text fields keep offering the on-screen
-    // touch keyboard when nothing is attached.
-    if (!a164_kbd_present())
-    {
-        return nullptr;
-    }
-#endif
+    // The Tab5 Keyboard's input device stays registered while the keyboard is undocked
+    // so a later dock just works. Report a hardware keyboard only while it answers, so
+    // text fields keep offering the on-screen keyboard when nothing is attached.
+    namespace kbd = platform::esp::idf_common::sentinel_keyboard;
+    return kbd::present() ? kbd::indev() : nullptr;
+#else
     return find_indev(LV_INDEV_TYPE_KEYPAD);
+#endif
 }
 
 lv_indev_t* lv_get_encoder_indev()
