@@ -78,14 +78,24 @@ static constexpr const char* kSymbolCandidates[] = {
     "↘",
     "↙",
     "⇐",
+// The built-in Symbol Core font (text_candidate_builtin_symbol_data.h) has no glyph for
+// U+21D1, U+21D3, U+21A9, U+21AA, U+21BB or U+21BA. On the Tab5 Sentinel image it is the
+// only font that supplies these candidates, so they rendered as empty boxes (#20); leave
+// them out there. Other builds may cover them from other fonts and keep them.
+#if !defined(TRAIL_MATE_SENTINEL)
     "⇑",
+#endif
     "⇒",
+#if !defined(TRAIL_MATE_SENTINEL)
     "⇓",
+#endif
     "⇔",
+#if !defined(TRAIL_MATE_SENTINEL)
     "↩",
     "↪",
     "↻",
     "↺",
+#endif
     "•",
     "◦",
     "·",

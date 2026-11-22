@@ -106,3 +106,16 @@ CONFIG_LV_USE_COLOR_FILTER=y
 # Tab5) but only compiles in under LV_STDLIB_CUSTOM, so select the custom allocator here.
 # Object/style allocations are not DMA'd; draw buffers keep their SDK-owned DMA allocation.
 CONFIG_LV_USE_CUSTOM_MALLOC=y
+
+# --- UI: symbol and emoji glyphs in the candidate picker (GitHub issue #20) ---
+# The Sym/Emoji picker offers characters well beyond Montserrat's ASCII range (inverted
+# punctuation, section/copyright signs, math operators, Greek letters, arrows, emoji). Their
+# glyphs come from the "Symbol Core" and "Emoji Core" fonts
+# compiled into the image (text_candidate_builtin_*_data.h), which resource_pack_registry
+# registers as content-font supplements only under LV_USE_FS_MEMFS: lv_binfont_create_from_
+# buffer() reads a font through LVGL's memory-mapped file system. With MEMFS off (the ESP
+# default) neither font is ever loaded and every non-ASCII candidate renders as an empty box.
+# Enable MEMFS on drive letter 'M' (77); the POSIX SD driver keeps 'F'. The font data is
+# already in flash (about 6 KB symbols, 24 KB emoji); loading parses it into PSRAM.
+CONFIG_LV_USE_FS_MEMFS=y
+CONFIG_LV_FS_MEMFS_LETTER=77
